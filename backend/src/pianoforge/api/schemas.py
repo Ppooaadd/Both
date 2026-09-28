@@ -10,7 +10,16 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from pianoforge.arrangement.params import ArrangementParams
-from pianoforge.db.enums import AssetStatus, EventLevel, JobKind, JobStatus, Plan
+from pianoforge.db.enums import (
+    ArrangementStatus,
+    AssetStatus,
+    Difficulty,
+    EventLevel,
+    ExportFormat,
+    JobKind,
+    JobStatus,
+    Plan,
+)
 
 T = TypeVar("T")
 
@@ -166,9 +175,52 @@ class ProjectOut(_Out):
     latest_job: JobOut | None = None
 
 
+class ExportOut(_Out):
+    format: ExportFormat
+    size_bytes: int
+    engine: str
+    created_at: datetime
+
+
+class ArrangementOut(_Out):
+    id: uuid.UUID
+    project_id: uuid.UUID
+    analysis_id: uuid.UUID
+    difficulty: Difficulty
+    params: dict[str, Any]
+    revision: int
+    status: ArrangementStatus
+    stats: dict[str, Any]
+    created_at: datetime
+    exports: list[ExportOut]
+
+
+class ArrangementDetailOut(ArrangementOut):
+    score: dict[str, Any] | None = None  # ScoreIR JSON (piano roll / preview)
+
+
+class ArrangementCreateIn(_In):
+    params: ArrangementParams = Field(default_factory=ArrangementParams)
+
+
+class ArrangementRequestOut(BaseModel):
+    """``arrangement`` is set when an identical arrangement already exists (HTTP 200);
+    otherwise ``job`` tracks the new rearrangement (HTTP 202)."""
+
+    arrangement: ArrangementOut | None
+    job: JobOut | None
+
+
+class DownloadOut(BaseModel):
+    url: str
+    expires_in: int
+    filename: str
+
+
 class ProjectDetailOut(ProjectOut):
     asset: AssetOut
     analysis: AnalysisSummaryOut | None = None
+    latest_arrangement: ArrangementOut | None = None
 
 
 class ProjectCreatedOut(BaseModel):

@@ -40,7 +40,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - name: System packages
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libsndfile1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg libsndfile1 libcairo2 fluidsynth fluid-soundfont-gm
       - name: Install
         run: pip install -e ".[dev]"
       - name: Lint

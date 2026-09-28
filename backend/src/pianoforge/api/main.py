@@ -23,7 +23,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from pianoforge import __version__
 from pianoforge.api.errors import install_error_handlers
-from pianoforge.api.routers import auth, health, jobs, projects, uploads, ws
+from pianoforge.api.routers import arrangements, auth, health, jobs, projects, uploads, ws
 from pianoforge.api.security import CSRF_HEADER
 from pianoforge.config import Settings, get_settings
 from pianoforge.db.session import get_async_engine
@@ -141,7 +141,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 
     app.include_router(health.router)
-    for r in (auth.router, uploads.router, projects.router, jobs.router, ws.router):
+    for r in (
+        auth.router,
+        uploads.router,
+        projects.router,
+        arrangements.router,
+        jobs.router,
+        ws.router,
+    ):
         app.include_router(r, prefix=settings.api_prefix)
     app.include_router(ws.socket_router)
     return app

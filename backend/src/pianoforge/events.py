@@ -38,7 +38,17 @@ def encode(payload: dict[str, Any]) -> str:
     return json.dumps(payload, default=str, separators=(",", ":"))
 
 
-def overall(stage: str, fraction: float) -> int:
-    lo, hi = STAGE_WINDOWS.get(stage, (0, 100))
+# Re-arrangement jobs skip analysis, so arrange/export own the whole bar.
+REARRANGE_WINDOWS: dict[str, tuple[int, int]] = {
+    "queued": (0, 0),
+    "arrange": (0, 35),
+    "export": (35, 99),
+    "done": (100, 100),
+}
+
+
+def overall(stage: str, fraction: float, kind: str = "full") -> int:
+    windows = REARRANGE_WINDOWS if kind == "rearrange" else STAGE_WINDOWS
+    lo, hi = windows.get(stage, (0, 100))
     f = max(0.0, min(1.0, fraction))
     return round(lo + (hi - lo) * f)

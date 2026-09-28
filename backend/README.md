@@ -13,6 +13,7 @@ FastAPI API + Celery 워커 + 오디오 분석 파이프라인. 하나의 Python
 
 - Python 3.11+
 - ffmpeg / ffprobe
+- libcairo2 (PDF 변환), 선택: fluidsynth + 피아노 SoundFont (예: `fluid-soundfont-gm`)
 - PostgreSQL 14+ (`citext` 확장)
 - Redis 6+
 - S3 호환 스토리지 (개발 환경: MinIO)
@@ -50,6 +51,8 @@ Docker Compose 기반 전체 스택은 Phase 5에서 `infra/`에 제공한다.
 | `PF_BEAT_TRACKER_CHAIN` | `madmom,librosa,fixed` | madmom 0.16은 최신 numpy에서 import가 실패해 자동으로 건너뜀 |
 | `PF_KEY_DETECTOR_CHAIN` | `krumhansl` | |
 | `PF_CHORD_RECOGNIZER_CHAIN` | `hmm,template` | |
+| `PF_ENGRAVER_CHAIN` | `verovio,musescore` | PDF 악보. 둘 다 실패하면 MusicXML만 제공하고 경고를 남김 |
+| `PF_RENDERER_CHAIN` | `fluidsynth,synth` | 피아노 오디오. FluidSynth에는 SoundFont가 필요 (`PF_SOUNDFONT_PATH`) |
 
 워커는 기동 시 `adapter_availability` 로그로 가용성 매트릭스를 출력한다.
 
@@ -83,6 +86,8 @@ src/pianoforge/
 ├── storage/      # S3 클라이언트, 키 규칙
 ├── audio/        # ffprobe 검증, ffmpeg 디코딩, 라우드니스 정규화
 ├── analysis/     # IR, Adapter 인터페이스, Registry, adapters/, merge, structure, service
-├── arrangement/  # 편곡 파라미터 (엔진은 Phase 3)
+├── arrangement/  # 편곡 엔진: profiles, timeline, melody, harmony, voicing, patterns,
+│                 #   texture, playability, fingering, engine → ScoreIR
+├── export/       # midi, musicxml, engrave(PDF), render_audio(WAV), exporter
 └── worker/       # Celery 앱, 베이스 태스크, 진행률, 파이프라인, tasks/
 ```

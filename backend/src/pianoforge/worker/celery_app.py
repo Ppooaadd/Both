@@ -31,6 +31,8 @@ celery_app = Celery(
         "pianoforge.worker.tasks.ingest",
         "pianoforge.worker.tasks.separate",
         "pianoforge.worker.tasks.analyze",
+        "pianoforge.worker.tasks.arrange",
+        "pianoforge.worker.tasks.export",
         "pianoforge.worker.tasks.finalize",
         "pianoforge.worker.tasks.maintenance",
     ],

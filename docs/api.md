@@ -121,7 +121,54 @@ type UserOut = { id: string; email: string; display_name: string; plan: "free" |
 | PATCH | `/projects/{id}` | `{title}` |
 | DELETE | `/projects/{id}` | 활성 작업 취소 후 삭제, 참조가 없으면 스토리지 정리 |
 
-## 4. 작업
+## 4. 편곡
+
+프로젝트 생성 시 `params`로 첫 편곡을 만들고, 이후 파라미터를 바꿔 재생성한다. 재생성은 저장된 분석 결과(`AnalysisIR`)를 재사용하므로 편곡과 내보내기만 다시 실행한다 (수 초).
+
+| Method | Path | 설명 |
+|---|---|---|
+| POST | `/projects/{id}/arrangements` | `{params}`. 같은 설정의 완료된 편곡이 있으면 **200** `{arrangement, job: null}`, 없으면 **202** `{arrangement: null, job}` |
+| GET | `/projects/{id}/arrangements` | 최신순 목록 (각 항목에 `exports` 포함) |
+| GET | `/arrangements/{id}?include_score=true` | 메타데이터 + `score`(ScoreIR). 피아노 롤·미리보기에 사용 |
+| GET | `/arrangements/{id}/exports/{format}` | `format`: `midi`, `musicxml`, `pdf`, `wav`, `mp3`. 302 → presigned URL (5분). `?redirect=false`면 `{url, expires_in, filename}` |
+
+- 오류 `409 analysis_not_ready`: 분석이 아직 끝나지 않음
+- 오류 `404 export_not_ready`: 해당 형식이 아직 생성되지 않음
+- 다운로드 파일명은 `"{프로젝트 제목} ({Beginner|Intermediate|Advanced}).{ext}"` 형식이다.
+- `GET /projects/{id}` 응답의 `latest_arrangement`에 가장 최근 편곡이 들어 있다.
+
+```ts
+type ArrangementOut = {
+  id: string; project_id: string; analysis_id: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  params: ArrangementParams; revision: number; status: "pending" | "ready" | "failed";
+  stats: {
+    measures: number; key: string; tempo_bpm: number; pattern: string; grid: "1/4" | "1/8" | "1/16" | "1/8t";
+    rh_notes: number; lh_notes: number; rh_max_poly: number; lh_max_poly: number;
+    rh_max_span: number; lh_max_span: number; rh_range: string; lh_range: string;
+    onsets_per_second: number; mean_melody_leap: number; difficulty_score: number;  // 0–10
+    warnings: string[]; export_engines: Record<string, string>; export_warnings: string[];
+  };
+  created_at: string; exports: { format: string; size_bytes: number; engine: string; created_at: string }[];
+};
+
+type ScoreIR = {
+  title: string; difficulty: string; tpq: 480; tempo_bpm: number; time_signature: [number, 4];
+  key: { tonic: number; mode: "major" | "minor"; fifths: number }; transpose: number;
+  grid: number; measures: number;
+  notes: { hand: "rh" | "lh"; pitch: number; start: number; dur: number;   // ticks
+           velocity: number; role: "melody" | "harmony" | "bass" | "accomp"; finger: number | null }[];
+  chords: { start: number; root: number; quality: string; bass: number | null }[];
+  sections: { start: number; label: string }[];
+  pedal: { start: number; end: number }[];
+  beat_times: number[];      // 원음에서 각 악보 박의 시각(초). 원곡과 동기화 재생에 사용
+  show_fingering: boolean; stats: object; warnings: string[];
+};
+```
+
+같은 손 안에서는 같은 시작점의 음들이 같은 길이를 갖고, 다음 시작점 전에 끝난다 (chord stream). 그래서 피아노 롤은 음을 그대로 그리면 된다.
+
+## 5. 작업
 
 | Method | Path | 설명 |
 |---|---|---|
@@ -150,8 +197,10 @@ type JobOut = {
 | tonal | 52–62 | cpu (transcribe와 병렬) |
 | transcribe | 52–80 | ml (tonal과 병렬) |
 | merge | 80–85 | cpu |
-| arrange | 85–92 | cpu (Phase 3) |
-| export | 92–99 | cpu (Phase 3) |
+| arrange | 85–92 | cpu |
+| export | 92–99 | cpu |
+
+재편곡 작업(`kind: "rearrange"`)은 `arrange` 0–35, `export` 35–99 구간을 쓴다.
 
 ### 사용자에게 노출되는 실패 코드 (`error_code`)
 
@@ -165,10 +214,11 @@ type JobOut = {
 | `not_uploaded`, `too_large` | 스토리지 상태 불일치 |
 | `timeout` | 태스크 시간 제한 초과, 또는 워커 무응답으로 회수됨 |
 | `engine_unavailable` | 모든 대체 엔진이 실패 |
+| `nothing_to_arrange` | 멜로디와 코드를 모두 찾지 못함 |
 | `infrastructure` | DB/S3/Redis 일시 오류 (재시도 3회 후) |
 | `internal_error` | 그 외 |
 
-## 5. WebSocket
+## 6. WebSocket
 
 ```text
 POST /api/v1/ws-ticket {job_id}  → { ticket, expires_in: 30, url: "/ws/jobs/{job_id}" }
@@ -195,7 +245,7 @@ type Msg =
 - 종료 상태의 `status` 메시지를 보낸 뒤 서버가 1000으로 연결을 닫는다.
 - 접속 시점에 이미 종료된 작업이면 `snapshot`만 보내고 닫는다.
 
-## 6. AnalysisIR (요약)
+## 7. AnalysisIR (요약)
 
 ```ts
 type AnalysisIR = {
@@ -217,7 +267,7 @@ type AnalysisIR = {
 };
 ```
 
-## 7. 헬스 체크
+## 8. 헬스 체크
 
 | Path | 설명 |
 |---|---|

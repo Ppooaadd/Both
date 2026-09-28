@@ -110,6 +110,10 @@ class Settings(BaseSettings):
     beat_tracker_chain: list[str] = Field(default_factory=lambda: ["madmom", "librosa", "fixed"])
     key_detector_chain: list[str] = Field(default_factory=lambda: ["krumhansl"])
     chord_recognizer_chain: list[str] = Field(default_factory=lambda: ["hmm", "template"])
+    engraver_chain: list[str] = Field(default_factory=lambda: ["verovio", "musescore"])
+    renderer_chain: list[str] = Field(default_factory=lambda: ["fluidsynth", "synth"])
+    soundfont_path: str | None = None  # defaults to the first SoundFont found on the system
+    musescore_path: str | None = None
     demucs_model: str = "htdemucs"
     demucs_device: str = "auto"
 
@@ -128,6 +132,8 @@ class Settings(BaseSettings):
         "beat_tracker_chain",
         "key_detector_chain",
         "chord_recognizer_chain",
+        "engraver_chain",
+        "renderer_chain",
         mode="before",
     )
     @classmethod

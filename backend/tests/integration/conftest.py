@@ -71,6 +71,8 @@ def configured(s3_server: str) -> Iterator[None]:
     )
     # Register tasks in this process (workers do this via ``include``).
     import pianoforge.worker.tasks.analyze
+    import pianoforge.worker.tasks.arrange
+    import pianoforge.worker.tasks.export
     import pianoforge.worker.tasks.finalize
     import pianoforge.worker.tasks.ingest
     import pianoforge.worker.tasks.maintenance
@@ -106,7 +108,7 @@ def eager_enqueue(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     import uuid
 
-    from pianoforge.api.routers import projects
+    from pianoforge.api.routers import arrangements, projects
     from pianoforge.worker import pipeline
 
     def run(ctx: dict[str, object]) -> str:
@@ -115,7 +117,14 @@ def eager_enqueue(monkeypatch: pytest.MonkeyPatch) -> None:
             pipeline.full_pipeline(ctx, root).apply_async()
         return root
 
+    def run_rearrange(ctx: dict[str, object]) -> str:
+        root = str(uuid.uuid4())
+        with contextlib.suppress(Exception):
+            pipeline.rearrange_pipeline(ctx, root).apply_async()
+        return root
+
     monkeypatch.setattr(projects, "enqueue_full_pipeline", run)
+    monkeypatch.setattr(arrangements, "enqueue_rearrange", run_rearrange)
 
 
 @pytest.fixture(scope="session")

@@ -68,9 +68,12 @@ _EVENT_SQL = text(
 
 
 class ProgressReporter:
-    def __init__(self, job_id: uuid.UUID | str, stage: str, min_interval_s: float = 1.0) -> None:
+    def __init__(
+        self, job_id: uuid.UUID | str, stage: str, min_interval_s: float = 1.0, kind: str = "full"
+    ) -> None:
         self.job_id = str(job_id)
         self.stage = stage
+        self.kind = kind
         self.min_interval_s = min_interval_s
         self._last_sent = 0.0
         self._last_pct = -1
@@ -84,7 +87,7 @@ class ProgressReporter:
         self.update(fraction)
 
     def update(self, fraction: float, force: bool = False) -> None:
-        pct = overall(self.stage, fraction)
+        pct = overall(self.stage, fraction, self.kind)
         now = time.monotonic()
         if not force and (pct == self._last_pct or now - self._last_sent < self.min_interval_s):
             return

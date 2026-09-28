@@ -2,10 +2,13 @@
 
 Full job::
 
-    ingest -> separate -> rhythm -> group(tonal, transcribe) -> merge -> finalize
+    ingest -> separate -> rhythm -> group(tonal, transcribe) -> merge
                                     \\_____ chord ________/
+           -> arrange -> export -> finalize
 
-Phase 3 inserts ``arrange -> export`` between ``merge`` and ``finalize``.
+Re-arrangement job (new parameters on an existing analysis)::
+
+    arrange -> export -> finalize
 """
 
 from __future__ import annotations
@@ -27,6 +30,8 @@ RHYTHM = "pianoforge.rhythm"
 TONAL = "pianoforge.tonal"
 TRANSCRIBE = "pianoforge.transcribe"
 MERGE = "pianoforge.merge"
+ARRANGE = "pianoforge.arrange"
+EXPORT = "pianoforge.export"
 FINALIZE = "pianoforge.finalize"
 
 
@@ -41,8 +46,11 @@ def initial_context(
     user_id: uuid.UUID,
     asset_id: uuid.UUID,
     params: dict[str, Any],
+    kind: str = "full",
+    analysis_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    return {
+    ctx: dict[str, Any] = {
+        "kind": kind,
         "job_id": str(job_id),
         "project_id": str(project_id),
         "user_id": str(user_id),
@@ -50,6 +58,9 @@ def initial_context(
         "pipeline_version": PIPELINE_VERSION,
         "params": params,
     }
+    if analysis_id is not None:
+        ctx["analysis_id"] = str(analysis_id)
+    return ctx
 
 
 def full_pipeline(ctx: dict[str, Any], root_task_id: str | None = None) -> Signature:
@@ -62,12 +73,27 @@ def full_pipeline(ctx: dict[str, Any], root_task_id: str | None = None) -> Signa
         _sig(RHYTHM),
         group(_sig(TONAL), _sig(TRANSCRIBE)),
         _sig(MERGE),
+        _sig(ARRANGE),
+        _sig(EXPORT),
         _sig(FINALIZE),
     )
+
+
+def rearrange_pipeline(ctx: dict[str, Any], root_task_id: str | None = None) -> Signature:
+    first = _sig(ARRANGE, ctx)
+    if root_task_id:
+        first = first.set(task_id=root_task_id)
+    return chain(first, _sig(EXPORT), _sig(FINALIZE))
 
 
 def enqueue_full_pipeline(ctx: dict[str, Any]) -> str:
     """Send the canvas; returns the first task's id (stored on the job for revocation)."""
     root_task_id = str(uuid.uuid4())
     full_pipeline(ctx, root_task_id).apply_async()
+    return root_task_id
+
+
+def enqueue_rearrange(ctx: dict[str, Any]) -> str:
+    root_task_id = str(uuid.uuid4())
+    rearrange_pipeline(ctx, root_task_id).apply_async()
     return root_task_id

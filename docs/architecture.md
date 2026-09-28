@@ -1,6 +1,6 @@
 # PianoForge — Phase 1 시스템 설계
 
-> 상태: Phase 1 승인 · **Phase 2 구현 완료** (백엔드·분석 파이프라인). API 계약은 [api.md](api.md) 참고.
+> 상태: Phase 1–2 승인 · **Phase 3 구현 완료** (편곡 엔진·내보내기). API 계약은 [api.md](api.md) 참고.
 
 ## 1. 설계 원칙
 
@@ -502,3 +502,30 @@ arr/{arrangement_id}/export/{format}
 | 웹 악보 | **OpenSheetMusicDisplay** | MusicXML 직접 렌더, 커서 API로 재생 위치 동기화 |
 | 웹 재생 | **Tone.js + 샘플 피아노** | ScoreIR에서 직접 스케줄링, 피아노 롤과 동일 타임라인 공유 |
 | 비트 추적 | librosa 기본, madmom 선택 | madmom은 빌드 이슈가 잦아 optional extra로 분리 |
+
+## 9. 편곡 엔진 (Phase 3)
+
+```mermaid
+flowchart LR
+    IR["AnalysisIR"] --> K["1. key<br/>이조 · 초급 쉬운 조"]
+    K --> T["2. timeline<br/>비트 → 마디 정렬 tick<br/>격자 선택 (직선/셋잇단)"]
+    T --> M["3. melody<br/>양자화 · 장식음 흡수<br/>레가토 · 음역 맞춤 · 도약 접기"]
+    T --> H["4. harmony<br/>난이도별 화성 리듬"]
+    H --> L["5. left hand<br/>root · block · alberti<br/>arpeggio · stride<br/>보이스 리딩 · 페달"]
+    M --> X["6. texture<br/>멜로디 아래 화음음"]
+    H --> X
+    L --> P["7. playability<br/>음역 · 동시음 · 뻗기<br/>손 충돌"]
+    X --> P
+    P --> F["8. finish<br/>운지 DP · 셈여림 · 코드 심볼<br/>섹션 · 통계"]
+    F --> S["ScoreIR"]
+    S --> E1["MIDI (mido)"]
+    S --> E2["MusicXML (music21)"]
+    E2 --> E3["PDF (Verovio → cairosvg)"]
+    S --> E4["WAV/MP3 (FluidSynth → numpy 합성)"]
+```
+
+- **ScoreIR 불변식:** 한 손 안에서 음이 겹치지 않는다 (chord stream). 덕분에 MusicXML은 보표당 1성부로 표기되고, 피아노 롤은 음을 그대로 그린다.
+- **난이도 프로필** (`arrangement/profiles.py`): 격자, 손당 최대 동시음(2/3/5), 뻗기(5도/옥타브/10도), 음역, 화성 리듬, 오른손 보강 성부 수, 페달, 운지 표기 여부를 정의한다. 사용자 파라미터(`density`, `quantize_grid`, `range_*`)로 조절한다.
+- **운지:** 선율선에 손가락 1–5 Viterbi를 적용한다 (Parncutt식 전이 비용). 화음을 잡을 손가락과 뻗기를 비용에 포함하고, 왼손은 음높이를 반전해 같은 모델을 쓴다.
+- **내보내기 fallback:** PDF는 Verovio → MuseScore → (없으면 MusicXML만 제공) 순이다. 오디오는 FluidSynth + SoundFont → numpy 가산 합성 순이다.
+- **동일 파라미터 캐시:** `(project, analysis, difficulty, params_hash)` UNIQUE (마이그레이션 0002).

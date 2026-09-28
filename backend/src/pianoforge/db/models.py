@@ -221,7 +221,11 @@ class Arrangement(UUIDPk, CreatedAt, Base):
     __tablename__ = "arrangements"
     __table_args__ = (
         UniqueConstraint(
-            "analysis_id", "difficulty", "params_hash", name="uq_arrangements_analysis_params"
+            "project_id",
+            "analysis_id",
+            "difficulty",
+            "params_hash",
+            name="uq_arrangements_project_params",
         ),
         Index("ix_arrangements_project_created", "project_id", text("created_at DESC")),
     )

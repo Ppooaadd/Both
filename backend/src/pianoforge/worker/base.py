@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, OperationalError
 
 from pianoforge.analysis.registry import NoAdapterAvailable, register_propagating
+from pianoforge.arrangement.engine import ArrangementError
 from pianoforge.audio.probe import AudioValidationError
 from pianoforge.db.session import sync_session
 from pianoforge.logging import get_logger
@@ -55,6 +56,8 @@ def user_error(exc: BaseException) -> tuple[str, str]:
         return exc.code, exc.message
     if isinstance(exc, SoftTimeLimitExceeded):
         return "timeout", "처리 시간이 제한을 초과했습니다. 더 짧은 곡으로 다시 시도해 주세요."
+    if isinstance(exc, ArrangementError):
+        return "nothing_to_arrange", "멜로디나 코드를 찾지 못해 편곡할 수 없습니다."
     if isinstance(exc, NoAdapterAvailable):
         return "engine_unavailable", "분석 엔진을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요."
     if isinstance(exc, (BotoCoreError, DBAPIError, redis.RedisError)):

@@ -32,6 +32,7 @@ from pianoforge.api.errors import (
 from pianoforge.api.routers.jobs import cancel_job_rows
 from pianoforge.api.schemas import (
     AnalysisSummaryOut,
+    ArrangementOut,
     AssetOut,
     JobOut,
     Page,
@@ -42,7 +43,7 @@ from pianoforge.api.schemas import (
     ProjectUpdateIn,
 )
 from pianoforge.db.enums import AssetStatus, JobKind, JobStatus, Plan
-from pianoforge.db.models import AudioAsset, Job, Project, User
+from pianoforge.db.models import Arrangement, AudioAsset, Job, Project, User
 from pianoforge.logging import get_logger
 from pianoforge.storage import ObjectNotFound
 from pianoforge.worker.celery_app import celery_app
@@ -219,8 +220,17 @@ async def get_project(project_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Pr
     project = await owned_project(db, user, project_id)
     jobs = await latest_jobs(db, [project.id])
     base = _project_out(project, jobs.get(project.id))
+    latest = (
+        await db.execute(
+            select(Arrangement)
+            .where(Arrangement.project_id == project.id)
+            .order_by(Arrangement.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
     return ProjectDetailOut(
         **base.model_dump(),
+        latest_arrangement=ArrangementOut.model_validate(latest) if latest else None,
         asset=AssetOut.model_validate(project.audio_asset),
         analysis=AnalysisSummaryOut.model_validate(project.current_analysis)
         if project.current_analysis

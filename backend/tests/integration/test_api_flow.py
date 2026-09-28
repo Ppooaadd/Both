@@ -75,7 +75,16 @@ def test_full_pipeline_flow(client: TestClient, mp3_file: Path) -> None:
 
     events = client.get(f"/api/v1/jobs/{job_id}/events").json()
     stages = [e["stage"] for e in events]
-    for stage in ("ingest", "separate", "rhythm", "tonal", "transcribe", "merge"):
+    for stage in (
+        "ingest",
+        "separate",
+        "rhythm",
+        "tonal",
+        "transcribe",
+        "merge",
+        "arrange",
+        "export",
+    ):
         assert stage in stages
     assert events == sorted(events, key=lambda e: e["id"])
 
@@ -116,6 +125,61 @@ def test_full_pipeline_flow(client: TestClient, mp3_file: Path) -> None:
     ):
         ws.receive_json()
     assert exc.value.code == 1008
+
+
+def test_arrangement_exports_and_rearrange(client: TestClient, mp3_file: Path) -> None:
+    signup(client)
+    created = create_project(
+        client, upload(client, mp3_file), difficulty="beginner", simplify_key=True
+    )
+    project_id = created["project"]["id"]
+    detail = client.get(f"/api/v1/projects/{project_id}").json()
+    arr = detail["latest_arrangement"]
+    assert arr is not None and arr["status"] == "ready"
+    assert arr["difficulty"] == "beginner"
+    assert {e["format"] for e in arr["exports"]} == {"midi", "musicxml", "pdf", "wav", "mp3"}
+    assert arr["stats"]["measures"] >= 10
+
+    full = client.get(f"/api/v1/arrangements/{arr['id']}").json()
+    score = full["score"]
+    assert score["difficulty"] == "beginner" and score["key"]["tonic"] == 0
+    assert score["tempo_bpm"] == pytest.approx(100, rel=0.03)
+    assert max(sum(1 for n in score["notes"] if n["hand"] == "rh" and n["start"] == s)
+               for s in {n["start"] for n in score["notes"]}) == 1  # fmt: skip
+
+    # Download: 302 to a presigned URL, and the JSON variant.
+    r = client.get(f"/api/v1/arrangements/{arr['id']}/exports/midi", follow_redirects=False)
+    assert r.status_code == 302 and "X-Amz-Signature" in r.headers["location"]
+    info = client.get(f"/api/v1/arrangements/{arr['id']}/exports/pdf?redirect=false").json()
+    assert info["filename"] == "song (Beginner).pdf"
+    assert httpx.get(info["url"], timeout=30).content.startswith(b"%PDF")
+    midi = httpx.get(r.headers["location"], timeout=30).content
+    assert midi.startswith(b"MThd")
+
+    # New parameters -> rearrange job; identical parameters -> existing result.
+    r = client.post(
+        f"/api/v1/projects/{project_id}/arrangements", json={"params": {"difficulty": "advanced"}}
+    )
+    assert r.status_code == 202, r.text
+    job = client.get(f"/api/v1/jobs/{r.json()['job']['id']}").json()
+    assert job["kind"] == "rearrange" and job["status"] == "succeeded", job
+    events = client.get(f"/api/v1/jobs/{job['id']}/events").json()
+    assert {e["stage"] for e in events} == {"arrange", "export"}
+    arrs = client.get(f"/api/v1/projects/{project_id}/arrangements").json()
+    assert [a["difficulty"] for a in arrs] == ["advanced", "beginner"]
+    assert [a["revision"] for a in arrs] == [2, 1]
+
+    r = client.post(
+        f"/api/v1/projects/{project_id}/arrangements", json={"params": {"difficulty": "advanced"}}
+    )
+    assert r.status_code == 200
+    assert r.json()["job"] is None and r.json()["arrangement"]["id"] == arrs[0]["id"]
+
+    bad = client.post(
+        f"/api/v1/projects/{project_id}/arrangements",
+        json={"params": {"range_low": 60, "range_high": 70}},
+    )
+    assert bad.status_code == 422
 
 
 def test_duplicate_upload_reuses_analysis(client: TestClient, mp3_file: Path) -> None:

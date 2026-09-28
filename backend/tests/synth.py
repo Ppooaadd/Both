@@ -11,6 +11,17 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from pianoforge.analysis.ir import (
+    AnalysisIR,
+    ChordSegment,
+    KeyInfo,
+    NoteEvent,
+    NoteTrack,
+    Section,
+    TempoInfo,
+    TimeSignature,
+)
+from pianoforge.analysis.merge import BeatGrid
 from pianoforge.audio.buffer import AudioBuffer
 
 SR = 22_050
@@ -124,4 +135,58 @@ def render_song(bpm: float = 100.0, repeats: int = 4, offset: float = 0.5) -> So
         beats=beats,
         chord_labels=chord_labels,
         melody=melody,
+    )
+
+
+def ground_truth_ir(song: Song, key_tonic: int = 0, key_mode: str = "major") -> AnalysisIR:
+    """AnalysisIR built from the synthetic song's ground truth (no analysis run)."""
+    grid = BeatGrid([float(b) for b in song.beats], song.bpm)
+
+    def note(start: float, end: float, pitch: int, vel: int = 90) -> NoteEvent:
+        return NoteEvent(
+            start=start,
+            end=end,
+            pitch=pitch,
+            velocity=vel,
+            confidence=0.9,
+            start_beat=round(grid.to_beat(start), 3),
+            end_beat=round(grid.to_beat(end), 3),
+        )
+
+    beat = 60.0 / song.bpm
+    melody = [note(s, e, p) for s, e, p in song.melody]
+    bass = []
+    for s, e, root, _q in song.chord_labels:
+        bass.append(note(s, s + beat * 1.9, 36 + root, 80))
+        bass.append(note(s + 2 * beat, s + 3.9 * beat, 36 + root, 75))
+    chords = [
+        ChordSegment(
+            start=s,
+            end=e,
+            root=root,
+            quality=q,  # type: ignore[arg-type]
+            confidence=0.9,
+            start_beat=round(grid.to_beat(s), 3),
+            end_beat=round(grid.to_beat(e), 3),
+        )
+        for s, e, root, q in song.chord_labels
+    ]
+    return AnalysisIR(
+        pipeline_version="test",
+        duration=song.mix.duration,
+        sample_rate=SR,
+        engines={"separator": "ground-truth"},
+        tempo=TempoInfo(bpm=song.bpm, confidence=1.0),
+        time_signature=TimeSignature(numerator=4),
+        beats=[float(b) for b in song.beats],
+        downbeats=[float(b) for b in song.beats[::4]],
+        key=KeyInfo(tonic=key_tonic, mode=key_mode, confidence=0.9),  # type: ignore[arg-type]
+        chords=chords,
+        sections=[Section(start=0.0, end=song.mix.duration, label="A")],
+        tracks={
+            "melody": NoteTrack(role="melody", source="vocals", engine="gt", notes=melody),
+            "bass": NoteTrack(role="bass", source="bass", engine="gt", notes=bass),
+            "harmony": NoteTrack(role="harmony", source="chords", engine="chords", notes=[]),
+        },
+        stems=[],
     )

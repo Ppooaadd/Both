@@ -1,0 +1,131 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * Design tokens. Palette: lacquered-piano navy (primary) + pedal brass (accent)
+ * on a cool paper ground. Right hand = navy, left hand = brass throughout the UI
+ * (piano roll, legends, badges) so the two hands read consistently.
+ */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.975 0.004 255);
+  --foreground: oklch(0.2 0.015 260);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.36 0.09 262);
+  --primary-foreground: oklch(0.98 0.005 255);
+  --secondary: oklch(0.94 0.012 258);
+  --secondary-foreground: oklch(0.28 0.04 262);
+  --muted: oklch(0.95 0.006 255);
+  --muted-foreground: oklch(0.5 0.02 258);
+  --accent: oklch(0.93 0.02 258);
+  --accent-foreground: oklch(0.28 0.06 262);
+  --destructive: oklch(0.55 0.2 27);
+  --border: oklch(0.9 0.008 258);
+  --input: oklch(0.88 0.01 258);
+  --ring: oklch(0.55 0.1 262);
+  --brass: oklch(0.6 0.11 78);
+  --success: oklch(0.55 0.12 150);
+  --warning: oklch(0.62 0.13 70);
+  /* Piano roll */
+  --roll-bg: oklch(0.99 0.002 255);
+  --roll-black-row: oklch(0.955 0.006 258);
+  --roll-grid: oklch(0.9 0.008 258);
+  --roll-bar: oklch(0.78 0.02 258);
+  --roll-rh: oklch(0.42 0.12 262);
+  --roll-lh: oklch(0.62 0.12 72);
+  --roll-playhead: oklch(0.58 0.2 25);
+  --roll-key-white: oklch(0.99 0.002 255);
+  --roll-key-black: oklch(0.24 0.015 260);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.17 0.012 260);
+    --foreground: oklch(0.93 0.008 255);
+    --card: oklch(0.21 0.014 260);
+    --popover: oklch(0.22 0.014 260);
+    --primary: oklch(0.74 0.1 262);
+    --primary-foreground: oklch(0.18 0.03 262);
+    --secondary: oklch(0.27 0.02 260);
+    --secondary-foreground: oklch(0.9 0.01 255);
+    --muted: oklch(0.25 0.015 260);
+    --muted-foreground: oklch(0.7 0.02 258);
+    --accent: oklch(0.29 0.03 262);
+    --accent-foreground: oklch(0.92 0.01 255);
+    --destructive: oklch(0.65 0.19 25);
+    --border: oklch(0.31 0.015 260);
+    --input: oklch(0.34 0.015 260);
+    --ring: oklch(0.7 0.1 262);
+    --brass: oklch(0.78 0.11 80);
+    --success: oklch(0.72 0.13 150);
+    --warning: oklch(0.8 0.13 80);
+    --roll-bg: oklch(0.19 0.012 260);
+    --roll-black-row: oklch(0.215 0.013 260);
+    --roll-grid: oklch(0.26 0.014 260);
+    --roll-bar: oklch(0.38 0.02 260);
+    --roll-rh: oklch(0.72 0.11 262);
+    --roll-lh: oklch(0.8 0.12 80);
+    --roll-playhead: oklch(0.7 0.19 25);
+    --roll-key-white: oklch(0.82 0.01 255);
+    --roll-key-black: oklch(0.2 0.012 260);
+  }
+}
+
+@theme inline {
+  --font-sans: var(--font-plex), "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brass: var(--brass);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "tnum" 0;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

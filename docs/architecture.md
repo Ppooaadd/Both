@@ -1,6 +1,6 @@
 # PianoForge — Phase 1 시스템 설계
 
-> 상태: Phase 1–2 승인 · **Phase 3 구현 완료** (편곡 엔진·내보내기). API 계약은 [api.md](api.md) 참고.
+> 상태: Phase 1–3 승인 · **Phase 4 구현 완료** (Next.js UI). API 계약은 [api.md](api.md) 참고.
 
 ## 1. 설계 원칙
 
@@ -500,7 +500,7 @@ arr/{arrangement_id}/export/{format}
 | 악보 렌더 | **Verovio** | pip 설치 가능, 헤드리스, MusicXML → SVG 품질 양호. MuseScore는 선택적 fallback |
 | 오디오 렌더 | **FluidSynth + Salamander Grand SF2** | 라이선스 허용(CC-BY), 오프라인 렌더 안정 |
 | 웹 악보 | **OpenSheetMusicDisplay** | MusicXML 직접 렌더, 커서 API로 재생 위치 동기화 |
-| 웹 재생 | **Tone.js + 샘플 피아노** | ScoreIR에서 직접 스케줄링, 피아노 롤과 동일 타임라인 공유 |
+| 웹 재생 | **서버 렌더링 MP3** (Phase 4에서 Tone.js 대신 채택) | 들리는 소리가 다운로드 파일과 같고 샘플 호스팅이 필요 없음. `<audio>` 하나가 피아노 롤·악보 커서의 공통 시계 |
 | 비트 추적 | librosa 기본, madmom 선택 | madmom은 빌드 이슈가 잦아 optional extra로 분리 |
 
 ## 9. 편곡 엔진 (Phase 3)

@@ -1,6 +1,6 @@
 # PianoForge — Phase 1 시스템 설계
 
-> 상태: **검토 대기 (Phase 1)**. 승인 후 Phase 2(백엔드·ML 파이프라인 코어)로 진행한다.
+> 상태: Phase 1 승인 · **Phase 2 구현 완료** (백엔드·분석 파이프라인). API 계약은 [api.md](api.md) 참고.
 
 ## 1. 설계 원칙
 
@@ -68,10 +68,9 @@ flowchart LR
 flowchart TD
     A["1. ingest<br/>ffprobe 검증 · 44.1kHz 변환<br/>loudness 정규화 · sha256"] --> B["2. separate<br/>Demucs htdemucs<br/>vocals / drums / bass / other"]
     B --> C1["3a. rhythm<br/>tempo · beats · downbeats<br/>time signature"]
-    B --> C2["3b. tonal<br/>key (Krumhansl) · chords<br/>(chroma + HMM Viterbi)"]
-    B --> C3["3c. transcribe<br/>Basic Pitch<br/>melody(vocals) · bass · harmony(other)"]
-    C1 --> D["4. merge → AnalysisIR<br/>비트 그리드 양자화 · 섹션 추정"]
-    C2 --> D
+    C1 --> C2["3b. tonal<br/>key (Krumhansl) · chords<br/>(chroma + HMM Viterbi) · sections"]
+    C1 --> C3["3c. transcribe<br/>Basic Pitch<br/>melody(vocals) · bass · harmony(other)"]
+    C2 --> D["4. merge → AnalysisIR<br/>비트 그리드 매핑 · skyline 단선율화"]
     C3 --> D
     D --> E["5. arrange<br/>난이도 엔진 → ScoreIR"]
     E --> F1["6a. MIDI<br/>pretty_midi"]
@@ -82,7 +81,8 @@ flowchart TD
     R(["파라미터 조절 후 재생성"]) -. "AnalysisIR 재사용" .-> E
 ```
 
-- 3a/3b/3c는 Celery `group`으로 병렬 실행, 4에서 `chord`로 합류한다.
+- 3a(rhythm) 이후 3b/3c를 Celery `group`으로 병렬 실행하고, 4에서 `chord`로 합류한다. 코드 인식은 비트 단위 크로마를 쓰므로 비트 그리드가 먼저 필요하다 (Phase 2 구현 중 조정).
+- 제어 흐름 예외(취소 `JobStopped`, Celery soft time limit)는 Adapter fallback을 건너뛰고 즉시 단계를 중단시킨다.
 - 각 단계는 멱등(idempotent). 입력 해시 기준으로 S3 결과가 있으면 스킵한다.
 - 단계 진행률은 `job:{id}` Redis 채널에 publish → API가 WebSocket으로 중계한다. WS 불가 시 TanStack Query 폴링(`GET /jobs/{id}`)으로 대체한다.
 

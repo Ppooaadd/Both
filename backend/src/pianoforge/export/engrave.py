@@ -21,6 +21,8 @@ from pianoforge.config import get_settings
 
 A4_WIDTH = 2100  # Verovio units: 1/10 mm
 A4_HEIGHT = 2970
+# cairosvg sizes are CSS pixels (96 dpi): A4 = 210 x 297 mm = 794 x 1123 px = 595 x 842 pt.
+A4_PX = (794, 1123)
 
 
 class ScoreEngraver(Adapter):
@@ -84,8 +86,8 @@ class VerovioEngraver(ScoreEngraver):
             svg = tk.renderToSVG(page)
             page_pdf = cairosvg.svg2pdf(
                 bytestring=svg.encode("utf-8"),
-                output_width=595,  # A4 in PostScript points
-                output_height=842,
+                output_width=A4_PX[0],
+                output_height=A4_PX[1],
             )
             for p in PdfReader(io.BytesIO(page_pdf)).pages:
                 writer.add_page(p)

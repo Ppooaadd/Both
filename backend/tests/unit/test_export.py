@@ -56,6 +56,11 @@ def test_pdf_engraving(score: ScoreIR, tmp_path: Path) -> None:
     pdf = VerovioEngraver().engrave(xml, tmp_path / "s.pdf")
     data = pdf.read_bytes()
     assert data.startswith(b"%PDF") and len(data) > 5000
+    from pypdf import PdfReader
+
+    box = PdfReader(str(pdf)).pages[0].mediabox
+    assert float(box.width) == pytest.approx(595, abs=2)  # A4 in points
+    assert float(box.height) == pytest.approx(842, abs=2)
 
 
 @pytest.mark.parametrize("renderer", [SynthRenderer, FluidSynthRenderer])

@@ -40,6 +40,11 @@ class Settings(BaseSettings):
     # --- object storage ---
     s3_endpoint_url: str | None = "http://localhost:9000"
     s3_public_endpoint_url: str | None = None  # host reachable by browsers, if different
+    # True when the public URL is a reverse proxy that forwards to s3_endpoint_url with
+    # the internal Host header (the Docker stack's Caddy does). URLs are then signed for
+    # the internal host and only their origin is rewritten, so the signature stays valid
+    # whatever Host the browser or an intermediate forwarder (e.g. Codespaces) sends.
+    s3_public_via_proxy: bool = False
     s3_region: str = "us-east-1"
     s3_access_key: SecretStr = SecretStr("minioadmin")
     s3_secret_key: SecretStr = SecretStr("minioadmin")

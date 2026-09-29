@@ -1,6 +1,6 @@
-# Single entry point for the browser: web UI, REST API and WebSocket share one
-# origin, so session cookies and CSRF work without cross-site rules.
-# Object storage (presigned URLs) is reached directly on its own port.
+# Single entry point for the browser: web UI, REST API, WebSocket and object
+# storage (presigned uploads/downloads) all share one origin. One port to expose,
+# no CORS, and session cookies and CSRF work without cross-site rules.
 {
 	admin off
 }
@@ -8,10 +8,27 @@
 :80 {
 	encode zstd gzip
 
+	# Presigned S3 URLs: /<bucket> (POST upload) and /<bucket>/<key> (GET).
+	# URLs are signed for the internal host, so the Host header is rewritten to
+	# match regardless of what the browser or a port forwarder sent.
+	@storage path /{$S3_BUCKET} /{$S3_BUCKET}/*
+	handle @storage {
+		reverse_proxy storage:9000 {
+			header_up Host storage:9000
+			transport http {
+				read_timeout 10m
+				write_timeout 10m
+			}
+		}
+	}
+
 	@backend path /api/* /ws/* /healthz /readyz
 	handle @backend {
+		# API bodies are small JSON; audio never passes through the API.
+		request_body {
+			max_size 2MB
+		}
 		reverse_proxy api:8000 {
-			# Uploads go straight to storage; API bodies are small JSON.
 			transport http {
 				read_timeout 120s
 			}
@@ -19,6 +36,9 @@
 	}
 
 	handle {
+		request_body {
+			max_size 2MB
+		}
 		reverse_proxy web:3000
 	}
 
@@ -26,10 +46,6 @@
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		-Server
-	}
-
-	request_body {
-		max_size 2MB
 	}
 
 	log {

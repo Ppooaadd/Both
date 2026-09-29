@@ -1,4 +1,4 @@
-"""S3-compatible storage client (MinIO in development).
+"""S3-compatible storage client (RustFS in the Docker stack).
 
 boto3 is synchronous. The API calls the cheap, network-free presign methods
 directly and wraps the rest with ``anyio.to_thread``; workers call everything directly.
@@ -57,12 +57,23 @@ class Storage:
         # Presigned URLs embed the host in the signature, so they must be signed
         # against the endpoint the browser will actually reach.
         public = settings.s3_public_endpoint_url or settings.s3_endpoint_url
-        self._presign_client = (
-            self._client
-            if public == settings.s3_endpoint_url
-            else boto3.client("s3", endpoint_url=public, **common)
-        )
+        self._rewrite: tuple[str, str] | None = None
+        if public == settings.s3_endpoint_url:
+            self._presign_client = self._client
+        elif settings.s3_public_via_proxy and settings.s3_endpoint_url:
+            self._presign_client = self._client
+            self._rewrite = (
+                settings.s3_endpoint_url.rstrip("/"),
+                public.rstrip("/") if public else "",
+            )
+        else:
+            self._presign_client = boto3.client("s3", endpoint_url=public, **common)
         self.bucket = settings.s3_bucket
+
+    def _public(self, url: str) -> str:
+        if self._rewrite and url.startswith(self._rewrite[0]):
+            return self._rewrite[1] + url[len(self._rewrite[0]) :]
+        return url
 
     # ---- bucket lifecycle -------------------------------------------------
     def ensure_bucket(self) -> None:
@@ -104,20 +115,24 @@ class Storage:
             ],
             ExpiresIn=expires,
         )
-        return PresignedPost(url=post["url"], fields=post["fields"], expires_in=expires)
+        return PresignedPost(
+            url=self._public(post["url"]), fields=post["fields"], expires_in=expires
+        )
 
     def presign_download(self, key: str, filename: str, content_type: str) -> str:
         safe_name = "".join(c for c in filename if c.isalnum() or c in "._- ")[:120] or "download"
-        return str(
-            self._presign_client.generate_presigned_url(
-                "get_object",
-                Params={
-                    "Bucket": self.bucket,
-                    "Key": key,
-                    "ResponseContentDisposition": f'attachment; filename="{safe_name}"',
-                    "ResponseContentType": content_type,
-                },
-                ExpiresIn=self._s.download_url_ttl_s,
+        return self._public(
+            str(
+                self._presign_client.generate_presigned_url(
+                    "get_object",
+                    Params={
+                        "Bucket": self.bucket,
+                        "Key": key,
+                        "ResponseContentDisposition": f'attachment; filename="{safe_name}"',
+                        "ResponseContentType": content_type,
+                    },
+                    ExpiresIn=self._s.download_url_ttl_s,
+                )
             )
         )
 

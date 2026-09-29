@@ -504,7 +504,7 @@ arr/{arrangement_id}/export/{format}
 | 비트 추적 | librosa 기본, madmom 선택 | madmom은 빌드 이슈가 잦아 optional extra로 분리 |
 | 로컬 오브젝트 스토리지 | **RustFS** (S3 호환, Apache-2.0) | MinIO 공식 이미지가 더 이상 공개 배포되지 않음. 버킷·CORS 설정은 `pianoforge.storage.bootstrap`이 S3 API로 수행해 서버 종류에 묶이지 않음 |
 | Basic Pitch 설치 | `--no-deps` + ONNX 모델 | 패키지 메타데이터가 TensorFlow와 numpy<2를 요구함. ONNX 추론은 onnxruntime만 필요해 이미지가 약 1.5 GB 작고 numpy 2 유지 |
-| 진입점 | **Caddy** 하나 (`:3000`) | 웹·API·WebSocket이 같은 origin이라 쿠키 세션·CSRF가 교차 사이트 규칙 없이 동작 |
+| 진입점 | **Caddy** 하나 (`:3000`) | 웹·API·WebSocket·스토리지가 같은 origin이라 쿠키 세션·CSRF가 교차 사이트 규칙 없이 동작하고, 공개할 포트가 하나뿐 (Codespaces 등 포트 포워딩 환경) |
 
 ## 9. 편곡 엔진 (Phase 3)
 
@@ -538,8 +538,8 @@ flowchart LR
 ```mermaid
 flowchart LR
     B["브라우저"] -->|":3000"| C["caddy"]
-    B -->|":9000 presigned URL"| ST[("storage<br/>RustFS")]
     C -->|"/api, /ws, /healthz"| A["api<br/>uvicorn ×2"]
+    C -->|"/버킷 (presigned URL)"| ST[("storage<br/>RustFS")]
     C -->|"그 외"| W["web<br/>Next.js standalone"]
     W -->|"rewrites (SSR)"| A
     A --> PG[("postgres")]

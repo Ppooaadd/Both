@@ -10,7 +10,7 @@
 | Docker Compose | v2.20+ | `docker compose version` |
 | 메모리 | 8 GB (Docker에 할당) | Demucs가 곡 전체를 메모리에 올린다. 4분 곡 기준 워커 최대 약 3 GB |
 | 디스크 | 12 GB | 이미지 약 6 GB + 빌드 캐시 |
-| 포트 | 3000, 9000 | `infra/.env`의 `APP_PORT`, `STORAGE_PORT`로 변경 |
+| 포트 | 3000 | `infra/.env`의 `APP_PORT`로 변경 |
 | GPU (선택) | NVIDIA + Container Toolkit | 음원 분리가 수 분 → 수 초 |
 
 ## 2. 실행
@@ -34,6 +34,17 @@ make up
 sh infra/scripts/init-env.sh
 docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --build
 ```
+
+### GitHub Codespaces
+
+```bash
+make up
+```
+
+- `make up`이 Codespaces를 감지해 `WEB_ORIGIN`을 `https://<코드스페이스>-3000.app.github.dev`로 자동 설정한다.
+- 기동이 끝나면 터미널 마지막 줄의 주소를 연다. **포트(Ports)** 탭의 3000번 주소와 같다.
+- 포트는 3000 하나만 쓴다. 파일 업로드·다운로드도 같은 주소로 지나가므로 따로 공개할 포트가 없다.
+- 4코어 이상 머신을 권장한다. 2코어에서는 첫 빌드가 오래 걸리고 분석이 느리다.
 
 ### GPU 사용
 
@@ -81,25 +92,22 @@ curl -s http://localhost:3000/readyz
 | http://localhost:3000 | 웹 UI (Caddy → web) |
 | http://localhost:3000/api/v1/* | REST API (Caddy → api) |
 | ws://localhost:3000/ws/jobs/{id} | 작업 진행 WebSocket |
-| http://localhost:9000 | 오브젝트 스토리지. 브라우저가 presigned URL로 직접 업로드·다운로드 |
+| http://localhost:3000/<버킷>/* | 오브젝트 스토리지 (presigned 업로드·다운로드, Caddy → storage) |
 
-다른 기기(같은 LAN의 휴대폰 등)에서 접속하려면 `infra/.env`의 주소를 호스트 IP로 바꾼다.
+다른 기기(같은 LAN의 휴대폰 등)에서 접속하려면 `infra/.env`의 `WEB_ORIGIN`을 브라우저 주소창에 들어갈 주소로 바꾸고 `make up`으로 다시 올린다.
 
 ```dotenv
 WEB_ORIGIN=http://192.168.0.10:3000
-STORAGE_PUBLIC_URL=http://192.168.0.10:9000
 ```
 
-presigned URL의 서명에 호스트가 포함되므로 `STORAGE_PUBLIC_URL`은 브라우저가 실제로 접속하는 주소와 같아야 한다. 바꾼 뒤 `make up`으로 다시 올린다(`storage-init`이 CORS를 새 origin으로 갱신).
+presigned URL은 내부 스토리지 주소로 서명하고 origin만 `WEB_ORIGIN`으로 바꿔 발급한다. Caddy가 스토리지로 넘길 때 Host 헤더를 내부 주소로 되돌리므로, 포트 포워더가 Host를 바꿔도 서명이 유지된다.
 
 ## 5. 설정 (`infra/.env`)
 
 | 변수 | 기본값 | 설명 |
 |---|---|---|
 | `APP_PORT` | 3000 | 웹 진입 포트 |
-| `WEB_ORIGIN` | http://localhost:3000 | CORS·스토리지 CORS 허용 origin |
-| `STORAGE_PORT` | 9000 | 스토리지 호스트 포트 |
-| `STORAGE_PUBLIC_URL` | http://localhost:9000 | presigned URL 서명 대상 주소 |
+| `WEB_ORIGIN` | http://localhost:3000 | 브라우저 주소창의 주소. CORS 허용 origin이자 presigned URL의 origin |
 | `STORAGE_ACCESS_KEY` / `STORAGE_SECRET_KEY` | 무작위 | 스토리지 자격 증명 |
 | `S3_BUCKET` | pianoforge | 버킷 이름 |
 | `POSTGRES_*` | 무작위 비밀번호 | DB 자격 증명 |
@@ -127,10 +135,10 @@ presigned URL의 서명에 호스트가 포함되므로 `STORAGE_PUBLIC_URL`은 
 | 증상 | 원인 | 조치 |
 |---|---|---|
 | 업로드가 CORS 오류로 실패 | 접속 주소와 `WEB_ORIGIN`이 다름 | `WEB_ORIGIN` 수정 후 `make up` |
-| 업로드 403 `SignatureDoesNotMatch` | `STORAGE_PUBLIC_URL`이 브라우저 접속 주소와 다름 | 같은 호스트·포트로 수정 |
 | `worker-ml`이 `OOMKilled` | Docker 메모리 부족 | Docker 메모리를 8 GB 이상으로 늘림 |
 | 분석이 "음원 분리 강등" 경고 | `WITH_ML=false` 이미지 또는 Demucs 실패 | `make logs`에서 `worker-ml` 오류 확인 |
-| 포트 충돌 | 3000·9000 사용 중 | `APP_PORT`, `STORAGE_PORT`, 그리고 두 URL 변수를 함께 변경 |
+| 포트 충돌 | 3000 사용 중 | `APP_PORT`와 `WEB_ORIGIN`을 함께 변경 |
+| `migrate` 실패 (`password authentication failed`) | 이전 실행의 DB 볼륨이 다른 비밀번호로 남아 있음 | `make clean && make up` (데이터 삭제) |
 | 사내 프록시에서 빌드 TLS 오류 | 가로채기 프록시 CA | `docker build --secret id=extra_ca,src=ca.crt` (Dockerfile 주석 참고) |
 
 ## 8. 운영 환경과의 차이

@@ -17,10 +17,15 @@ build: env ## Build all images
 
 up: env ## Build and start the stack in the background (http://localhost:3000)
 	$(COMPOSE) up -d --build
-	@echo "PianoForge: $$(grep ^WEB_ORIGIN infra/.env | cut -d= -f2)"
+	@echo ""
+	@echo "  PianoForge is running: $$(grep ^WEB_ORIGIN infra/.env | cut -d= -f2)"
+	@echo ""
 
 up-gpu: env ## Same as up, with the NVIDIA GPU overlay for the ML worker
 	$(COMPOSE_GPU) up -d --build
+	@echo ""
+	@echo "  PianoForge is running: $$(grep ^WEB_ORIGIN infra/.env | cut -d= -f2)"
+	@echo ""
 
 down: ## Stop the stack (keeps data volumes)
 	$(COMPOSE) down

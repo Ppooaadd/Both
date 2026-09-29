@@ -21,7 +21,7 @@ from pianoforge.storage.s3 import get_storage
 log = get_logger("pianoforge.storage.bootstrap")
 
 
-def main(attempts: int = 30, delay_s: float = 2.0) -> int:
+def main(attempts: int = 6, delay_s: float = 2.0) -> int:
     configure_logging()
     settings = get_settings()
     storage = get_storage()
@@ -33,7 +33,7 @@ def main(attempts: int = 30, delay_s: float = 2.0) -> int:
             log.info("storage_not_ready", attempt=attempt, error=repr(exc))
             time.sleep(delay_s)
     else:
-        log.error("storage_unreachable", endpoint=settings.s3_endpoint_url)
+        log.error("storage_unreachable", endpoint=settings.s3_endpoint_url, attempts=attempts)
         return 1
     try:
         storage.configure_cors(settings.cors_origins)

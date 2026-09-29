@@ -45,7 +45,11 @@ class Storage:
         cfg = Config(
             signature_version="s3v4",
             s3={"addressing_style": "path" if settings.s3_force_path_style else "auto"},
-            retries={"max_attempts": 5, "mode": "standard"},
+            # botocore's default connect timeout is 60 s; with retries an unreachable
+            # server would block a caller for minutes instead of failing fast.
+            connect_timeout=5,
+            read_timeout=60,
+            retries={"max_attempts": 3, "mode": "standard"},
         )
         common: dict[str, Any] = {
             "region_name": settings.s3_region,

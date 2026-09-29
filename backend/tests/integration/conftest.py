@@ -58,7 +58,9 @@ def configured(s3_server: str) -> Iterator[None]:
     cfg = Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
     command.downgrade(cfg, "base")
     command.upgrade(cfg, "head")
-    get_storage().ensure_bucket()
+    from pianoforge.storage.bootstrap import main as bootstrap_storage
+
+    assert bootstrap_storage(attempts=3, delay_s=0.5) == 0
 
     from pianoforge.worker.celery_app import celery_app
 

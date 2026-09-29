@@ -1,0 +1,197 @@
+# PianoForge local stack.
+#
+#   make env && make up          # or: docker compose -f infra/docker-compose.yml --env-file infra/.env up -d --build
+#   open http://localhost:3000
+#
+# Topology:
+#   browser -> caddy:80 (host APP_PORT) -> /api, /ws -> api:8000 ; everything else -> web:3000
+#   browser -> storage:9000 (host STORAGE_PORT) for presigned uploads/downloads
+#   api -> postgres, redis, storage ; workers -> same ; beat -> redis
+
+name: pianoforge
+
+x-backend-env: &backend-env
+  PF_ENV: dev
+  PF_LOG_JSON: "true"
+  PF_LOG_LEVEL: INFO
+  PF_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  PF_REDIS_URL: redis://redis:6379/0
+  PF_S3_ENDPOINT_URL: http://storage:9000
+  PF_S3_PUBLIC_ENDPOINT_URL: ${STORAGE_PUBLIC_URL}
+  PF_S3_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+  PF_S3_SECRET_KEY: ${STORAGE_SECRET_KEY}
+  PF_S3_BUCKET: ${S3_BUCKET}
+  PF_JWT_SECRET: ${PF_JWT_SECRET}
+  PF_CORS_ORIGINS: ${WEB_ORIGIN}
+  PF_COOKIE_SECURE: "false"
+  PF_WORK_DIR: /tmp/pianoforge
+
+x-api-build: &api-build
+  context: ..
+  dockerfile: infra/docker/backend.Dockerfile
+  target: api
+
+x-worker-build: &worker-build
+  context: ..
+  dockerfile: infra/docker/backend.Dockerfile
+  target: worker
+  args:
+    WITH_ML: ${WITH_ML:-true}
+
+# Every service that uses a locally built image carries the same build section,
+# so `up --build` never tries to pull it; the layer cache makes repeats free.
+x-worker: &worker
+  image: pianoforge/worker:local
+  build: *worker-build
+  environment:
+    <<: *backend-env
+  read_only: true
+  tmpfs:
+    - /tmp:size=4g
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+    storage-init:
+      condition: service_completed_successfully
+  restart: unless-stopped
+  stop_grace_period: 60s
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", ""]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  storage:
+    # S3-compatible object storage (RustFS, Apache-2.0). MinIO's registry images
+    # are no longer freely pullable; any S3-compatible server works here.
+    image: rustfs/rustfs:latest
+    environment:
+      RUSTFS_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${STORAGE_SECRET_KEY}
+    ports:
+      - "${STORAGE_PORT}:9000"
+    volumes:
+      - storagedata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  storage-init:
+    # Creates the bucket and its CORS rules (browser uploads/downloads go direct).
+    image: pianoforge/api:local
+    build: *api-build
+    environment:
+      <<: *backend-env
+    command: ["python", "-m", "pianoforge.storage.bootstrap"]
+    depends_on:
+      storage:
+        condition: service_healthy
+    restart: "no"
+
+  migrate:
+    image: pianoforge/api:local
+    build: *api-build
+    environment:
+      <<: *backend-env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: pianoforge/api:local
+    build: *api-build
+    environment:
+      <<: *backend-env
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker-cpu:
+    <<: *worker
+    command:
+      ["celery", "-A", "pianoforge.worker.celery_app", "worker", "-Q", "cpu",
+       "-c", "${CPU_CONCURRENCY:-2}", "--prefetch-multiplier", "1", "-n", "cpu@%h"]
+
+  worker-ml:
+    <<: *worker
+    # One task at a time: source separation holds the full song in memory.
+    command:
+      ["celery", "-A", "pianoforge.worker.celery_app", "worker", "-Q", "ml",
+       "-c", "1", "--prefetch-multiplier", "1", "-n", "ml@%h"]
+
+  beat:
+    <<: *worker
+    command:
+      ["celery", "-A", "pianoforge.worker.celery_app", "beat",
+       "-s", "/tmp/celerybeat-schedule", "--loglevel", "INFO"]
+    stop_grace_period: 10s
+
+  web:
+    image: pianoforge/web:local
+    build:
+      context: ..
+      dockerfile: infra/docker/web.Dockerfile
+      args:
+        BACKEND_ORIGIN: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "${APP_PORT}:80"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on:
+      web:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  storagedata:
+  caddydata:

@@ -37,11 +37,18 @@ dependencies = [
 
 [project.optional-dependencies]
 # Heavy ML engines. Absent -> AdapterRegistry falls back to DSP implementations.
+# basic-pitch itself is installed separately with `pip install --no-deps basic-pitch==0.4.0`:
+# its declared dependencies pin TensorFlow and numpy<2, but we run its ONNX model,
+# which needs only the runtime packages listed here.
 ml = [
     "torch>=2.2",
     "torchaudio>=2.2",
     "demucs>=4.0.1",
-    "basic-pitch[onnx]>=0.4",
+    "onnxruntime>=1.17",
+    "mir-eval>=0.6",
+    "pretty-midi>=0.2.10",
+    "resampy>=0.4",
+    "scikit-learn>=1.3",
 ]
 beats = ["madmom>=0.16.1"]
 dev = [

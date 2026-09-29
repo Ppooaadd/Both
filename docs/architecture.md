@@ -38,7 +38,7 @@ flowchart LR
 
     subgraph Data["데이터"]
         PG[("PostgreSQL<br/>SQLAlchemy 2 · Alembic")]
-        S3[("S3 호환 스토리지<br/>dev: MinIO")]
+        S3[("S3 호환 스토리지<br/>로컬: RustFS")]
     end
 
     UI --> RP
@@ -108,7 +108,7 @@ sequenceDiagram
     autonumber
     participant B as Browser
     participant A as FastAPI
-    participant S as S3/MinIO
+    participant S as S3 스토리지
     participant R as Redis
     participant W as Worker
     participant D as PostgreSQL
@@ -276,13 +276,13 @@ pianoforge/
 │       └── integration/
 ├── infra/
 │   ├── docker/
-│   │   ├── web.Dockerfile
-│   │   ├── api.Dockerfile
-│   │   └── worker.Dockerfile        # ffmpeg, fluidsynth, SF2 포함
-│   ├── docker-compose.yml           # web, api, worker-cpu, worker-ml, beat, postgres, redis, minio
+│   │   ├── web.Dockerfile           # Next.js standalone
+│   │   └── backend.Dockerfile       # target api | worker (ffmpeg, fluidsynth, SF2, Demucs, Basic Pitch)
+│   ├── docker-compose.yml           # caddy, web, api, worker-cpu, worker-ml, beat, postgres, redis, storage(RustFS)
 │   ├── docker-compose.gpu.yml       # NVIDIA 런타임 오버레이
 │   ├── caddy/Caddyfile
-│   └── minio/init-buckets.sh
+│   ├── scripts/init-env.sh          # infra/.env 생성 (무작위 비밀값)
+│   └── .env.example
 └── .github/
     └── workflows/
         ├── backend.yml              # ruff, mypy --strict, pytest
@@ -498,10 +498,13 @@ arr/{arrangement_id}/export/{format}
 |---|---|---|
 | 작업 큐 | **Celery** (vs Dramatiq) | chain/group/chord로 병렬 분석 후 합류 표현이 직접적. 큐별 라우팅(cpu/ml), revoke, beat 스케줄 내장 |
 | 악보 렌더 | **Verovio** | pip 설치 가능, 헤드리스, MusicXML → SVG 품질 양호. MuseScore는 선택적 fallback |
-| 오디오 렌더 | **FluidSynth + Salamander Grand SF2** | 라이선스 허용(CC-BY), 오프라인 렌더 안정 |
+| 오디오 렌더 | **FluidSynth + FluidR3_GM SF2** (`PF_SOUNDFONT_PATH`로 교체 가능) | Debian 패키지로 설치, 라이선스 허용(MIT), 오프라인 렌더 안정 |
 | 웹 악보 | **OpenSheetMusicDisplay** | MusicXML 직접 렌더, 커서 API로 재생 위치 동기화 |
 | 웹 재생 | **서버 렌더링 MP3** (Phase 4에서 Tone.js 대신 채택) | 들리는 소리가 다운로드 파일과 같고 샘플 호스팅이 필요 없음. `<audio>` 하나가 피아노 롤·악보 커서의 공통 시계 |
 | 비트 추적 | librosa 기본, madmom 선택 | madmom은 빌드 이슈가 잦아 optional extra로 분리 |
+| 로컬 오브젝트 스토리지 | **RustFS** (S3 호환, Apache-2.0) | MinIO 공식 이미지가 더 이상 공개 배포되지 않음. 버킷·CORS 설정은 `pianoforge.storage.bootstrap`이 S3 API로 수행해 서버 종류에 묶이지 않음 |
+| Basic Pitch 설치 | `--no-deps` + ONNX 모델 | 패키지 메타데이터가 TensorFlow와 numpy<2를 요구함. ONNX 추론은 onnxruntime만 필요해 이미지가 약 1.5 GB 작고 numpy 2 유지 |
+| 진입점 | **Caddy** 하나 (`:3000`) | 웹·API·WebSocket이 같은 origin이라 쿠키 세션·CSRF가 교차 사이트 규칙 없이 동작 |
 
 ## 9. 편곡 엔진 (Phase 3)
 
@@ -529,3 +532,36 @@ flowchart LR
 - **운지:** 선율선에 손가락 1–5 Viterbi를 적용한다 (Parncutt식 전이 비용). 화음을 잡을 손가락과 뻗기를 비용에 포함하고, 왼손은 음높이를 반전해 같은 모델을 쓴다.
 - **내보내기 fallback:** PDF는 Verovio → MuseScore → (없으면 MusicXML만 제공) 순이다. 오디오는 FluidSynth + SoundFont → numpy 가산 합성 순이다.
 - **동일 파라미터 캐시:** `(project, analysis, difficulty, params_hash)` UNIQUE (마이그레이션 0002).
+
+## 10. 컨테이너 구성 (Phase 5)
+
+```mermaid
+flowchart LR
+    B["브라우저"] -->|":3000"| C["caddy"]
+    B -->|":9000 presigned URL"| ST[("storage<br/>RustFS")]
+    C -->|"/api, /ws, /healthz"| A["api<br/>uvicorn ×2"]
+    C -->|"그 외"| W["web<br/>Next.js standalone"]
+    W -->|"rewrites (SSR)"| A
+    A --> PG[("postgres")]
+    A --> R[("redis")]
+    A --> ST
+    R --> WC["worker-cpu<br/>-Q cpu"]
+    R --> WM["worker-ml<br/>-Q ml -c 1<br/>Demucs · Basic Pitch"]
+    BT["beat"] --> R
+    WC --> ST
+    WM --> ST
+    WC --> PG
+    WM --> PG
+    MI["migrate<br/>alembic upgrade head"] -.1회.-> PG
+    SI["storage-init<br/>버킷 · CORS"] -.1회.-> ST
+```
+
+| 이미지 | 기반 | 크기(대략) | 내용 |
+|---|---|---|---|
+| `pianoforge/api` | python:3.12-slim | 1.4 GB | FastAPI, Alembic. 마이그레이션·스토리지 초기화 작업에도 사용 |
+| `pianoforge/worker` | python:3.12-slim | 3.9 GB (ML 포함) | + ffmpeg, FluidSynth, FluidR3_GM, cairo, torch(CPU), Demucs `htdemucs` 가중치, Basic Pitch ONNX |
+| `pianoforge/web` | node:22-bookworm-slim | 0.4 GB | Next.js standalone 서버 |
+
+- 모든 애플리케이션 컨테이너는 비루트 사용자로 실행된다. api와 워커는 읽기 전용 루트 파일시스템에 `/tmp` tmpfs만 쓴다.
+- 기동 순서는 healthcheck와 `service_completed_successfully`로 강제한다: postgres·redis·storage → migrate·storage-init → api·워커 → web → caddy.
+- GPU 오버레이(`docker-compose.gpu.yml`)는 워커를 CUDA torch로 빌드하고 `PF_DEMUCS_DEVICE=cuda`로 worker-ml에 GPU 1장을 할당한다.

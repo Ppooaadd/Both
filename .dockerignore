@@ -1,0 +1,18 @@
+# Keep the build context small: only backend/ and apps/web/ sources are needed.
+**/.git
+**/node_modules
+**/.next
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.venv
+**/venv
+**/test-results
+**/playwright-report
+**/.env
+**/.env.*
+!**/.env.example
+docs
+infra/.env

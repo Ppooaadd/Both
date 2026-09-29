@@ -1,0 +1,31 @@
+# NVIDIA GPU overlay for the ML worker (requires the NVIDIA Container Toolkit).
+#
+#   docker compose -f infra/docker-compose.yml -f infra/docker-compose.gpu.yml --env-file infra/.env up -d --build
+#
+# Builds the worker with CUDA-enabled PyTorch wheels and runs Demucs on the GPU.
+# Separation of a 4-minute song drops from minutes on CPU to seconds on a GPU.
+
+x-cuda-build: &cuda-build
+  build:
+    args:
+      TORCH_INDEX: https://download.pytorch.org/whl/cu126
+
+# All worker services share one image tag, so all get the CUDA build.
+services:
+  worker-cpu:
+    <<: *cuda-build
+
+  beat:
+    <<: *cuda-build
+
+  worker-ml:
+    <<: *cuda-build
+    environment:
+      PF_DEMUCS_DEVICE: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

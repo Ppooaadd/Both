@@ -1,0 +1,39 @@
+# Single entry point for the browser: web UI, REST API and WebSocket share one
+# origin, so session cookies and CSRF work without cross-site rules.
+# Object storage (presigned URLs) is reached directly on its own port.
+{
+	admin off
+}
+
+:80 {
+	encode zstd gzip
+
+	@backend path /api/* /ws/* /healthz /readyz
+	handle @backend {
+		reverse_proxy api:8000 {
+			# Uploads go straight to storage; API bodies are small JSON.
+			transport http {
+				read_timeout 120s
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+
+	request_body {
+		max_size 2MB
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

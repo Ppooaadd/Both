@@ -74,6 +74,23 @@ class Storage:
     def ping(self) -> None:
         self._client.head_bucket(Bucket=self.bucket)
 
+    def configure_cors(self, origins: list[str]) -> None:
+        """Allow the web app to upload (presigned POST) and fetch (presigned GET) directly."""
+        self._client.put_bucket_cors(
+            Bucket=self.bucket,
+            CORSConfiguration={
+                "CORSRules": [
+                    {
+                        "AllowedOrigins": origins,
+                        "AllowedMethods": ["GET", "HEAD", "POST", "PUT"],
+                        "AllowedHeaders": ["*"],
+                        "ExposeHeaders": ["ETag", "Content-Length", "Content-Range"],
+                        "MaxAgeSeconds": 3600,
+                    }
+                ]
+            },
+        )
+
     # ---- presign ----------------------------------------------------------
     def presign_upload(self, key: str, content_type: str, max_bytes: int) -> PresignedPost:
         expires = self._s.upload_url_ttl_s

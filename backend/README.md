@@ -16,7 +16,7 @@ FastAPI API + Celery 워커 + 오디오 분석 파이프라인. 하나의 Python
 - libcairo2 (PDF 변환), 선택: fluidsynth + 피아노 SoundFont (예: `fluid-soundfont-gm`)
 - PostgreSQL 14+ (`citext` 확장)
 - Redis 6+
-- S3 호환 스토리지 (개발 환경: MinIO)
+- S3 호환 스토리지 (Docker 스택: RustFS. MinIO, AWS S3 등도 가능)
 
 ## 설치
 
@@ -24,10 +24,23 @@ FastAPI API + Celery 워커 + 오디오 분석 파이프라인. 하나의 Python
 cd backend
 python -m venv .venv && . .venv/bin/activate
 pip install -e ".[dev]"          # DSP fallback 엔진만 설치
-pip install -e ".[dev,ml]"       # + Demucs, Basic Pitch (torch 포함, 수 GB)
+pip install -e ".[dev,ml]"       # + Demucs와 Basic Pitch 런타임 (torch 포함, 수 GB)
+pip install --no-deps "basic-pitch==0.4.0"   # ONNX 모델 사용. TensorFlow·numpy<2 의존성을 피한다
 ```
 
 `ml` extra가 없어도 파이프라인은 동작한다. 다만 결과의 `warnings`와 `engines`에 강등된 엔진이 기록된다.
+
+## 로컬 실행 (Docker)
+
+전체 서비스를 한 번에 띄우는 방법은 [docs/local-run.md](../docs/local-run.md)를 본다.
+
+## 스토리지 초기화
+
+버킷 생성과 CORS 설정은 스토리지 종류와 무관한 부트스트랩 모듈이 수행한다(멱등).
+
+```bash
+python -m pianoforge.storage.bootstrap
+```
 
 ## 로컬 실행 (Docker 없이)
 

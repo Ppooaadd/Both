@@ -30,7 +30,9 @@ services:
     <<: *host
     environment:
       PORT: "3001"
-      HOSTNAME: 0.0.0.0
+      # Loopback only: Caddy (same host) is the sole entry point, so Codespaces
+      # does not offer this port as a second, cross-origin address for the app.
+      HOSTNAME: 127.0.0.1
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s

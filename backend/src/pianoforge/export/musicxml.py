@@ -7,6 +7,7 @@ in flat keys. Chord symbols and fingering (for levels that show it) are added.
 
 from __future__ import annotations
 
+import re
 from fractions import Fraction
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from music21 import (
     articulations,
     chord,
     clef,
+    dynamics,
+    expressions,
     harmony,
     key,
     layout,
@@ -69,6 +72,7 @@ def _staff(score: ScoreIR, hand: str, flats: bool, fingering: bool) -> stream.Pa
         feel = " Swing" if score.swing >= 0.55 else ""
         mark = tempo.MetronomeMark(text=f"{tempo_word(bpm)}{feel} ({bpm} BPM)", number=bpm)
         mark.numberImplicit = True
+        mark.placement = "above"  # type: ignore[assignment]  # music21 stub types it None
         part.insert(0, mark)
 
     groups: dict[int, list[ScoreNote]] = {}
@@ -93,6 +97,15 @@ def _staff(score: ScoreIR, hand: str, flats: bool, fingering: bool) -> stream.Pa
         part.insert(_ql(start, score.tpq), el)
 
     if hand == "rh":
+        # Dynamics sit between the staves (attached below the right hand).
+        for dm in score.dynamics:
+            d = dynamics.Dynamic(dm.mark)
+            d.placement = "below"
+            part.insert(_ql(dm.start, score.tpq), d)
+    else:
+        _pedal_marks(part, score)
+
+    if hand == "rh":
         for ch in score.chords:
             try:
                 sym = harmony.ChordSymbol(
@@ -113,6 +126,23 @@ def _staff(score: ScoreIR, hand: str, flats: bool, fingering: bool) -> stream.Pa
     return part
 
 
+def _pedal_marks(part: stream.PartStaff, score: ScoreIR) -> None:
+    """ "Ped. ... *" under the left hand for every sustain-pedal span."""
+    notes = sorted(part.recurse().notes, key=lambda n: n.offset)
+    for span in score.pedal:
+        a, b = _ql(span.start, score.tpq), _ql(span.end, score.tpq)
+        inside = [n for n in notes if a <= n.offset < b]
+        if not inside:
+            continue
+        mark = expressions.PedalMark(inside)
+        mark.pedalType = expressions.PedalType.Sustain
+        mark.pedalForm = expressions.PedalForm.Symbol
+        part.insert(0, mark)
+
+
+TEMPO_DIRECTION = re.compile(r"<direction>(\s*<direction-type>\s*<words[^>]*>[^<]*BPM\))")
+
+
 def build_musicxml_score(score: ScoreIR) -> stream.Score:
     flats = score.key.fifths < 0
     s = stream.Score()
@@ -131,4 +161,9 @@ def write_musicxml(score: ScoreIR, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     out = build_musicxml_score(score).makeNotation()
     out.write("musicxml", fp=str(path))
+    # music21 drops the placement of text tempo marks; engravers then put the
+    # tempo between the staves. It belongs above the top staff.
+    xml = path.read_text(encoding="utf-8")
+    xml = TEMPO_DIRECTION.sub(r'<direction placement="above">\1', xml, count=1)
+    path.write_text(xml, encoding="utf-8")
     return path

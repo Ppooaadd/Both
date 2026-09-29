@@ -55,6 +55,8 @@ ml = [
     "einops>=0.7",
     "rotary-embedding-torch>=0.6",
     "soxr>=0.3",
+    # CREPE pitch tracker for sung melodies (weights ship in the wheel).
+    "torchcrepe>=0.0.24",
 ]
 beats = ["madmom>=0.16.1"]
 dev = [

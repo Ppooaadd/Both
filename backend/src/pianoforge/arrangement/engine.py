@@ -22,6 +22,7 @@ import numpy as np
 
 from pianoforge.analysis.ir import AnalysisIR
 from pianoforge.analysis.merge import BeatGrid
+from pianoforge.arrangement.dynamics import apply_dynamics, bar_levels
 from pianoforge.arrangement.events import Ev
 from pianoforge.arrangement.fingering import assign_fingering
 from pianoforge.arrangement.harmony import ChordLookup, Span, chord_spans, slot_ticks
@@ -254,6 +255,8 @@ def arrange(ir: AnalysisIR, params: ArrangementParams, title: str) -> ScoreIR:
 
     # 8. finish -----------------------------------------------------------------
     _velocities(events)
+    levels = bar_levels(ir, tl, measures, shift_ticks // TPQ)
+    dynamics = apply_dynamics(events, levels, bar)
     assign_fingering(events)
     notes = [
         ScoreNote(
@@ -294,6 +297,7 @@ def arrange(ir: AnalysisIR, params: ArrangementParams, title: str) -> ScoreIR:
         chords=symbols,
         sections=sections,
         pedal=pedal,
+        dynamics=dynamics,
         beat_times=beat_times,
         performance_beats=performance,
         timing=params.timing,

@@ -63,6 +63,29 @@ def run_separation(
 
 
 # -------------------------------------------------------------------- rhythm
+def beat_loudness(mix: AudioBuffer, beats: list[float]) -> list[float]:
+    """Mean RMS level of each beat span in dB relative to the 95th percentile.
+
+    Relative levels make dynamics independent of mastering loudness.
+    """
+    if len(beats) < 2:
+        return []
+    y = mix.mono_at(ANALYSIS_SR)
+    hop = 512
+    rms = librosa.feature.rms(y=y, hop_length=hop)[0]
+    if rms.size == 0:
+        return []
+    db = 20 * np.log10(np.maximum(rms, 1e-8))
+    ref = float(np.percentile(db, 95))
+    frames = np.clip((np.asarray(beats) * ANALYSIS_SR / hop).astype(int), 0, db.size - 1)
+    out = []
+    for i, f in enumerate(frames):
+        g = frames[i + 1] if i + 1 < len(frames) else min(db.size, f + (f - frames[i - 1]))
+        seg = db[f : max(g, f + 1)]
+        out.append(round(float(np.mean(seg)) - ref, 2))
+    return out
+
+
 def run_rhythm(
     mix: AudioBuffer,
     stems: Mapping[str, AudioBuffer],
@@ -75,6 +98,7 @@ def run_rhythm(
     if r.confidence < 0.3:
         warnings.append("rhythm: low beat confidence; tempo may be unstable")
     return RhythmPart(
+        beat_loudness_db=beat_loudness(mix, [float(b) for b in r.beats]),
         engine=out.engine,
         bpm=float(r.bpm),
         beats=[float(b) for b in r.beats],
@@ -144,6 +168,9 @@ def run_tonal(
 
 # ------------------------------------------------------------- transcription
 ATTACK_HOP = 256
+# The vocal tracker must find at least this share of the general
+# transcriber's notes (bench: real vocals >= 0.62, split vocals <= 0.36).
+VOCAL_NOTE_RATIO = 0.5
 
 
 def annotate_attacks(notes: list[NoteEvent], audio: AudioBuffer) -> list[NoteEvent]:
@@ -203,8 +230,23 @@ def run_transcription(
         lo, hi = ROLE_HZ[role]
         req = TranscriptionRequest(audio=buf, role=role, min_hz=lo, max_hz=hi)
         step = _scaled(progress, i / len(roles), (i + 1) / len(roles))
-        out = registry.transcriber.run(lambda a, r=req, p=step: a.transcribe(r, p))  # type: ignore[misc]
+        chain = (
+            registry.vocal_transcriber
+            if role == "melody" and source_name == "vocals"
+            else registry.transcriber
+        )
+        out = chain.run(lambda a, r=req, p=step: a.transcribe(r, p))  # type: ignore[misc]
         notes = out.result
+        if chain is registry.vocal_transcriber and not bool(
+            getattr(out.adapter_cls, "polyphonic", True)
+        ):
+            # A monophonic tracker loses most of a vocal that the separator
+            # split between stems (heavy effects, doubled voices). Cross-check
+            # against the general transcriber and keep whichever sees the line.
+            general = registry.transcriber.run(lambda a, r=req: a.transcribe(r))  # type: ignore[misc]
+            if len(notes) < VOCAL_NOTE_RATIO * len(general.result):
+                out, notes = general, general.result
+                warnings.append("melody: weak vocal stem; used the polyphonic transcriber")
         # Instrumental track: vocals stem is audible noise but carries no melody.
         if (
             role == "melody"

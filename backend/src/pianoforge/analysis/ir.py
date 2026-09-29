@@ -119,6 +119,9 @@ class AnalysisIR(_Frozen):
     time_signature: TimeSignature
     beats: list[float]
     downbeats: list[float]
+    # Per-beat loudness of the recording in dB relative to its loud passages
+    # (0 = as loud as the song gets); drives dynamics in the arrangement.
+    beat_loudness_db: list[float] = Field(default_factory=list)
     key: KeyInfo
     chords: list[ChordSegment]
     sections: list[Section]

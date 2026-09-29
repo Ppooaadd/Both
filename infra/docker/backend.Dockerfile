@@ -78,11 +78,22 @@ ARG BEAT_THIS_URL=https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/f
 # fetches its weights through the Hugging Face hub.
 ENV TORCH_HOME=/opt/models/torch \
     HF_HOME=/opt/models/hf \
-    PF_SOUNDFONT_PATH=/usr/share/sounds/sf2/FluidR3_GM.sf2
+    PF_SOUNDFONT_PATH=/usr/share/sounds/sf2/YDP-GrandPiano.sf2
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg fluidsynth fluid-soundfont-gm libcairo2 \
+      fonts-nanum fontconfig bzip2 \
  && rm -rf /var/lib/apt/lists/*
+
+# Yamaha Disklavier Pro grand piano SoundFont (FreePats, CC BY 3.0) for the
+# rendered piano audio; FluidR3_GM stays installed as a fallback.
+ARG PIANO_SF2_URL=https://freepats.zenvoid.org/Piano/YDP-GrandPiano/YDP-GrandPiano-SF2-20160804.tar.bz2
+RUN --mount=type=secret,id=extra_ca,required=false \
+    SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt python -c "import urllib.request as u; u.urlretrieve('${PIANO_SF2_URL}', '/tmp/ydp.tar.bz2')" \
+ && tar -xjf /tmp/ydp.tar.bz2 -C /tmp \
+ && mv /tmp/YDP-GrandPiano-SF2-*/YDP-GrandPiano-*.sf2 /usr/share/sounds/sf2/YDP-GrandPiano.sf2 \
+ && rm -rf /tmp/ydp.tar.bz2 /tmp/YDP-GrandPiano-SF2-* \
+ && fc-cache -f >/dev/null
 
 # Basic Pitch's package metadata pins TensorFlow on Linux; the ONNX model needs only
 # onnxruntime, so it is installed without dependencies (saves ~1.5 GB and keeps numpy 2).
@@ -94,6 +105,7 @@ RUN --mount=type=secret,id=extra_ca,required=false \
                      "resampy>=0.4" "scikit-learn>=1.3" \
       && pip install --no-deps "basic-pitch==0.4.0" \
       && pip install "beat-this==1.1.0" "einops>=0.7" "rotary-embedding-torch>=0.6" "soxr>=0.3" \
+      && pip install "torchcrepe==0.0.24" \
       && mkdir -p /opt/models/torch \
       && REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
          python -c "from demucs.pretrained import get_model; get_model('htdemucs')" \

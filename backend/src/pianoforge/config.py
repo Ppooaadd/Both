@@ -147,6 +147,10 @@ class Settings(BaseSettings):
     # --- adapters (comma-separated fallback chains, first available wins) ---
     separator_chain: list[str] = Field(default_factory=lambda: ["demucs", "hpss", "passthrough"])
     transcriber_chain: list[str] = Field(default_factory=lambda: ["basic_pitch", "pyin"])
+    # Melody of a vocal stem (monophonic singing).
+    vocal_transcriber_chain: list[str] = Field(
+        default_factory=lambda: ["crepe", "basic_pitch", "pyin"]
+    )
     beat_tracker_chain: list[str] = Field(
         default_factory=lambda: ["beat_this", "madmom", "librosa", "fixed"]
     )
@@ -171,6 +175,7 @@ class Settings(BaseSettings):
         "allowed_containers",
         "separator_chain",
         "transcriber_chain",
+        "vocal_transcriber_chain",
         "beat_tracker_chain",
         "key_detector_chain",
         "chord_recognizer_chain",

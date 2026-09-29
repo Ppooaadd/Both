@@ -67,6 +67,11 @@ class SectionMark(_Frozen):
     label: str
 
 
+class DynamicMark(_Frozen):
+    start: int = Field(ge=0)
+    mark: Literal["pp", "p", "mp", "mf", "f", "ff"]
+
+
 class PedalSpan(_Frozen):
     start: int = Field(ge=0)
     end: int = Field(gt=0)
@@ -97,6 +102,7 @@ class ScoreIR(_Frozen):
     chords: list[ChordSymbol]
     sections: list[SectionMark]
     pedal: list[PedalSpan]
+    dynamics: list[DynamicMark] = Field(default_factory=list)
     # Source-audio time (s) of every score beat, for syncing with the original.
     beat_times: list[float]
     # Performance time (s from the start of the rendered audio) of every score

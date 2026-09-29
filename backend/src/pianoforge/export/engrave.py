@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import os
+import re
 import shutil
 import subprocess
 from abc import abstractmethod
@@ -83,7 +84,7 @@ class VerovioEngraver(ScoreEngraver):
             raise RuntimeError(f"verovio could not load the MusicXML: {tk.getLog()[-500:]}")
         writer = PdfWriter()
         for page in range(1, tk.getPageCount() + 1):
-            svg = tk.renderToSVG(page)
+            svg = _cjk_fonts(tk.renderToSVG(page))
             page_pdf = cairosvg.svg2pdf(
                 bytestring=svg.encode("utf-8"),
                 output_width=A4_PX[0],
@@ -97,6 +98,37 @@ class VerovioEngraver(ScoreEngraver):
         with pdf.open("wb") as f:
             writer.write(f)
         return pdf
+
+
+HANGUL_OR_CJK = re.compile(r"[\u1100-\u11ff\u3040-\u30ff\u3130-\u318f\u4e00-\u9fff\uac00-\ud7a3]")
+CJK_FONT = "NanumMyeongjo"
+
+
+@lru_cache(maxsize=1)
+def _cjk_font_installed() -> bool:
+    try:
+        out = subprocess.run(  # noqa: S603 - fixed argv
+            ["fc-list", f":family={CJK_FONT}"],  # noqa: S607 - fontconfig tool on PATH
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return bool(out.stdout.strip())
+
+
+def _cjk_fonts(svg: str) -> str:
+    """Point Verovio's text (title, lyrics, directions) at a Korean-capable font.
+
+    cairosvg does not fall back per glyph, so Hangul in a Times face renders as
+    boxes. Nanum Myeongjo is a serif with Latin glyphs, so the page stays
+    typographically consistent. Music glyphs use their own SMuFL font and are
+    unaffected.
+    """
+    if not HANGUL_OR_CJK.search(svg) or not _cjk_font_installed():
+        return svg
+    return svg.replace("Times,serif", CJK_FONT).replace("Times, serif", CJK_FONT)
 
 
 def _musescore_bin() -> str | None:

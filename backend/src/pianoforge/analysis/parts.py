@@ -26,6 +26,8 @@ class RhythmPart(_Part):
     time_signature: TimeSignature
     confidence: float
     tempo_curve: list[tuple[float, float]]
+    # Mix loudness (dB below the song's loud level) from each beat to the next.
+    beat_loudness_db: list[float] = []
     warnings: list[str] = []
 
 

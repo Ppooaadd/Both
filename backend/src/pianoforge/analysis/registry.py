@@ -120,6 +120,7 @@ class AdapterRegistry:
             KEY_DETECTORS,
             SEPARATORS,
             TRANSCRIBERS,
+            VOCAL_TRANSCRIBERS,
         )
 
         self.separator: AdapterChain[SourceSeparator] = AdapterChain(
@@ -127,6 +128,9 @@ class AdapterRegistry:
         )
         self.transcriber: AdapterChain[NoteTranscriber] = AdapterChain(
             "transcriber", TRANSCRIBERS, settings.transcriber_chain
+        )
+        self.vocal_transcriber: AdapterChain[NoteTranscriber] = AdapterChain(
+            "vocal_transcriber", VOCAL_TRANSCRIBERS, settings.vocal_transcriber_chain
         )
         self.beat_tracker: AdapterChain[BeatTracker] = AdapterChain(
             "beat_tracker", BEAT_TRACKERS, settings.beat_tracker_chain
@@ -143,6 +147,7 @@ class AdapterRegistry:
         out: dict[str, list[dict[str, object]]] = {}
         for chain in (
             self.separator,
+            self.vocal_transcriber,
             self.transcriber,
             self.beat_tracker,
             self.key_detector,

@@ -29,11 +29,26 @@ TARGET_LUFS = -16.0
 
 SOUNDFONT_SEARCH = (
     "/usr/share/sounds/sf2/SalamanderGrandPiano.sf2",
+    "/usr/share/sounds/sf2/YDP-GrandPiano.sf2",
     "/usr/share/sounds/sf2/FluidR3_GM.sf2",
     "/usr/share/sounds/sf2/default-GM.sf2",
     "/usr/share/soundfonts/FluidR3_GM.sf2",
     "/usr/share/soundfonts/default.sf2",
 )
+
+
+# A medium concert room: some air around the piano without washing out fast
+# passages. Chorus is off (it detunes a piano). Polyphony covers sustained
+# pedal passages without voice stealing.
+FLUID_SETTINGS = (
+    "-o", "synth.reverb.active=1",
+    "-o", "synth.reverb.room-size=0.55",
+    "-o", "synth.reverb.damp=0.35",
+    "-o", "synth.reverb.width=0.9",
+    "-o", "synth.reverb.level=0.32",
+    "-o", "synth.chorus.active=0",
+    "-o", "synth.polyphony=384",
+)  # fmt: skip
 
 
 class AudioRenderer(Adapter):
@@ -67,14 +82,21 @@ class FluidSynthRenderer(AudioRenderer):
         sf2 = find_soundfont()
         assert sf2 is not None
         raw = wav.with_suffix(".raw.wav")
+        # Shell commands run after the SoundFont loads: 7th-order sample
+        # interpolation (cleanest high notes) on every channel.
+        commands = wav.with_suffix(".fluid.cfg")
+        commands.write_text("interp 7\n")
         cmd = [
             "fluidsynth",
             "-ni",
             "-q",
             "-g",
-            "0.7",
+            "0.6",
             "-r",
             str(SR),
+            *FLUID_SETTINGS,
+            "-f",
+            str(commands),
             "-F",
             str(raw),
             sf2,
@@ -82,6 +104,7 @@ class FluidSynthRenderer(AudioRenderer):
         ]
         timeout = max(60.0, score.duration_s * 2)
         proc = subprocess.run(cmd, capture_output=True, timeout=timeout, check=False)  # noqa: S603
+        commands.unlink(missing_ok=True)
         if proc.returncode != 0 or not raw.exists():
             raise RuntimeError(f"fluidsynth failed: {proc.stderr.decode(errors='replace')[-300:]}")
         buf = read_audio(raw)

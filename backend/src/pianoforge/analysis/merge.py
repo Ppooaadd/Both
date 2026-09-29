@@ -351,6 +351,7 @@ def merge_analysis(
         tempo=TempoInfo(bpm=rhythm.bpm, confidence=rhythm.confidence, curve=rhythm.tempo_curve),
         time_signature=rhythm.time_signature,
         beats=[round(b, 4) for b in rhythm.beats],
+        beat_loudness_db=rhythm.beat_loudness_db,
         downbeats=[round(b, 4) for b in rhythm.downbeats],
         key=tonal.key,
         chords=chords,

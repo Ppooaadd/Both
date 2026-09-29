@@ -10,6 +10,7 @@ from pianoforge.analysis.adapters.separation_demucs import DemucsSeparator
 from pianoforge.analysis.adapters.separation_hpss import HpssSeparator
 from pianoforge.analysis.adapters.separation_passthrough import PassthroughSeparator
 from pianoforge.analysis.adapters.transcribe_basic_pitch import BasicPitchTranscriber
+from pianoforge.analysis.adapters.transcribe_crepe import CrepeTranscriber
 from pianoforge.analysis.adapters.transcribe_pyin import PyinTranscriber
 from pianoforge.analysis.interfaces import (
     BeatTracker,
@@ -21,6 +22,12 @@ from pianoforge.analysis.interfaces import (
 
 SEPARATORS: list[type[SourceSeparator]] = [DemucsSeparator, HpssSeparator, PassthroughSeparator]
 TRANSCRIBERS: list[type[NoteTranscriber]] = [BasicPitchTranscriber, PyinTranscriber]
+# Sung melodies (vocal stem): monophonic pitch trackers first.
+VOCAL_TRANSCRIBERS: list[type[NoteTranscriber]] = [
+    CrepeTranscriber,
+    BasicPitchTranscriber,
+    PyinTranscriber,
+]
 BEAT_TRACKERS: list[type[BeatTracker]] = [
     BeatThisTracker,
     MadmomBeatTracker,
@@ -36,8 +43,10 @@ __all__ = [
     "KEY_DETECTORS",
     "SEPARATORS",
     "TRANSCRIBERS",
+    "VOCAL_TRANSCRIBERS",
     "BasicPitchTranscriber",
     "BeatThisTracker",
+    "CrepeTranscriber",
     "DemucsSeparator",
     "FixedBeatTracker",
     "HmmChordRecognizer",

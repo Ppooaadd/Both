@@ -55,7 +55,7 @@ def decode_to_buffer(
     return buf
 
 
-def encode_mp3(src_wav: Path, dest_mp3: Path, settings: Settings, bitrate: str = "192k") -> Path:
+def encode_mp3(src_wav: Path, dest_mp3: Path, settings: Settings, bitrate: str = "256k") -> Path:
     cmd = [
         settings.ffmpeg_path, "-nostdin", "-hide_banner", "-v", "error",
         "-i", str(src_wav), "-c:a", "libmp3lame", "-b:a", bitrate, "-y", str(dest_mp3),

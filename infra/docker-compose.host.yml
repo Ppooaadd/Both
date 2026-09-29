@@ -29,12 +29,13 @@ services:
   web:
     <<: *host
     environment:
+      PF_APP_ORIGIN: ${WEB_ORIGIN}
       PORT: "39001"
       # Loopback only: Caddy (same host) is the sole entry point, so Codespaces
       # does not offer this port as a second, cross-origin address for the app.
       HOSTNAME: 127.0.0.1
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:39001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:39001/',{headers:{'x-pf-proxied':'1'},redirect:'manual'}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       start_period: 15s

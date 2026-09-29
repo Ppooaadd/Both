@@ -39,7 +39,10 @@
 		request_body {
 			max_size 2MB
 		}
-		reverse_proxy {$WEB_UPSTREAM:web:3000}
+		reverse_proxy {$WEB_UPSTREAM:web:3000} {
+			# Tells the web app the request came through the public entry point.
+			header_up X-PF-Proxied 1
+		}
 	}
 
 	header {

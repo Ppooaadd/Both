@@ -34,6 +34,8 @@ if ! timeout 420 docker compose $FILES $HOST_FILE --env-file infra/.env up -d; t
   sh infra/scripts/diagnose.sh
   exit 1
 fi
+# The Caddyfile is bind-mounted; compose does not notice edits to it.
+docker compose $FILES $HOST_FILE --env-file infra/.env restart caddy >/dev/null 2>&1
 echo
 echo "  PianoForge is running: $(sed -n 's/^WEB_ORIGIN=//p' infra/.env)"
 echo

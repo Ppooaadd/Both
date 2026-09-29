@@ -27,19 +27,19 @@ up-gpu: env ## Same as up, with the NVIDIA GPU overlay for the ML worker
 	@echo "  PianoForge is running: $$(grep ^WEB_ORIGIN infra/.env | cut -d= -f2)"
 	@echo ""
 
-down: ## Stop the stack (keeps data volumes)
+down: env ## Stop the stack (keeps data volumes)
 	$(COMPOSE) down
 
-clean: ## Stop the stack and delete all data volumes
+clean: env ## Stop the stack and delete all data volumes
 	$(COMPOSE) down -v
 
-logs: ## Follow logs of every service
+logs: env ## Follow logs of every service
 	$(COMPOSE) logs -f --tail=100
 
-ps: ## Service status
+ps: env ## Service status
 	$(COMPOSE) ps
 
-migrate: ## Apply database migrations
+migrate: env ## Apply database migrations
 	$(COMPOSE) run --rm migrate
 
 test: test-backend test-web ## Backend and web unit tests (no stack needed)

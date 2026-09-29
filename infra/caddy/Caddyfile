@@ -55,4 +55,14 @@
 		output stdout
 		format console
 	}
+
+	# While a backend is starting or restarting, Caddy would answer with an
+	# empty 502 that some mobile browsers save as a 0-byte file. Serve a small
+	# page that retries on its own instead.
+	handle_errors 502 503 504 {
+		header Content-Type "text/html; charset=utf-8"
+		header Cache-Control no-store
+		header Retry-After 5
+		respond `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="5"><title>PianoForge 준비 중</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f1115;color:#e6e8ee;font:16px/1.6 system-ui,sans-serif;text-align:center;padding:24px}p{color:#9aa3b2}</style></head><body><div><h1>서버를 준비하는 중입니다</h1><p>잠시 후 자동으로 다시 연결합니다.<br>1분 넘게 이 화면이면 터미널에서 make up이 끝났는지 확인하세요.</p></div></body></html>` 503
+	}
 }

@@ -31,6 +31,9 @@ class NoteEvent(_Frozen):
     confidence: float = Field(ge=0, le=1, default=1.0)
     start_beat: float | None = None
     end_beat: float | None = None
+    # Onset strength of the source audio at ``start`` relative to its local
+    # level (about 1 = a typical attack, below 0.4 = no audible re-attack).
+    attack: float | None = None
 
     @property
     def duration(self) -> float:

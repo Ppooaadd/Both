@@ -1,5 +1,6 @@
 """Adapter catalogue. Order here is irrelevant; settings define fallback order."""
 
+from pianoforge.analysis.adapters.beats_beat_this import BeatThisTracker
 from pianoforge.analysis.adapters.beats_fixed import FixedBeatTracker
 from pianoforge.analysis.adapters.beats_librosa import LibrosaBeatTracker
 from pianoforge.analysis.adapters.beats_madmom import MadmomBeatTracker
@@ -20,7 +21,12 @@ from pianoforge.analysis.interfaces import (
 
 SEPARATORS: list[type[SourceSeparator]] = [DemucsSeparator, HpssSeparator, PassthroughSeparator]
 TRANSCRIBERS: list[type[NoteTranscriber]] = [BasicPitchTranscriber, PyinTranscriber]
-BEAT_TRACKERS: list[type[BeatTracker]] = [MadmomBeatTracker, LibrosaBeatTracker, FixedBeatTracker]
+BEAT_TRACKERS: list[type[BeatTracker]] = [
+    BeatThisTracker,
+    MadmomBeatTracker,
+    LibrosaBeatTracker,
+    FixedBeatTracker,
+]
 KEY_DETECTORS: list[type[KeyDetector]] = [KrumhanslKeyDetector]
 CHORD_RECOGNIZERS: list[type[ChordRecognizer]] = [HmmChordRecognizer, TemplateChordRecognizer]
 
@@ -31,6 +37,7 @@ __all__ = [
     "SEPARATORS",
     "TRANSCRIBERS",
     "BasicPitchTranscriber",
+    "BeatThisTracker",
     "DemucsSeparator",
     "FixedBeatTracker",
     "HmmChordRecognizer",

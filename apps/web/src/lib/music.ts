@@ -17,8 +17,6 @@ export function chordLabel(root: number, quality: string, bass: number | null): 
   return label;
 }
 
-export const secondsPerTick = (bpm: number, tpq: number): number => 60 / (bpm * tpq);
-
 export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   beginner: "초급",
   intermediate: "중급",
@@ -38,6 +36,11 @@ export const PATTERN_LABEL: Record<ArrangementParams["left_hand_pattern"], strin
   alberti: "알베르티",
   arpeggio: "아르페지오",
   stride: "스트라이드",
+};
+
+export const TIMING_LABEL: Record<ArrangementParams["timing"], string> = {
+  original: "원곡 박자 그대로",
+  steady: "일정한 템포 (연습용)",
 };
 
 export const GRID_LABEL: Record<ArrangementParams["quantize_grid"], string> = {

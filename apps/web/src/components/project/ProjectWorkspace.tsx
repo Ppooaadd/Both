@@ -29,6 +29,7 @@ import {
   useRequestArrangement,
 } from "@/lib/api/queries";
 import { ArrangementParams, type Arrangement } from "@/lib/api/schemas";
+import { timeMap } from "@/lib/timing";
 import { DIFFICULTY_LABEL, GRID_LABEL, PATTERN_LABEL, localizeWarning } from "@/lib/music";
 import { cn, formatBytes, formatDuration } from "@/lib/utils";
 
@@ -93,6 +94,12 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
   const selected = (arrangements.data ?? []).find((a) => a.id === selectedId) ?? null;
   const detail = useArrangement(selected?.status === "ready" ? selected.id : null);
   const score = detail.data?.score ?? null;
+  const fallbackBpm = project.data?.analysis?.tempo_bpm ?? 120;
+  const toQuarters = useMemo(() => {
+    if (!score) return (s: number) => (s * fallbackBpm) / 60;
+    const map = timeMap(score);
+    return (s: number) => map.secToTick(s) / score.tpq;
+  }, [score, fallbackBpm]);
   const hasAudio = Boolean(selected?.exports.some((e) => e.format === "mp3"));
   const clock = useAudioClock(selected && hasAudio ? exportHref(selected.id, "mp3") : null);
 
@@ -201,7 +208,7 @@ export function ProjectWorkspace({ projectId }: { projectId: string }) {
                         <ScoreViewer
                           key={selected.id}
                           arrangementId={selected.id}
-                          bpm={score?.tempo_bpm ?? p.analysis.tempo_bpm}
+                          toQuarters={toQuarters}
                           getTime={clock.getTime}
                           playing={clock.playing}
                         />

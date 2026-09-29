@@ -11,6 +11,7 @@ from collections.abc import Mapping
 
 import librosa
 import numpy as np
+import scipy.ndimage
 
 from pianoforge.analysis.interfaces import (
     ProgressFn,
@@ -19,7 +20,7 @@ from pianoforge.analysis.interfaces import (
     TranscriptionRequest,
     _noop,
 )
-from pianoforge.analysis.ir import KeyInfo, NoteRole
+from pianoforge.analysis.ir import KeyInfo, NoteEvent, NoteRole
 from pianoforge.analysis.parts import RhythmPart, TonalPart, TrackPart, TranscriptionPart
 from pianoforge.analysis.registry import AdapterRegistry, FallbackOutcome
 from pianoforge.analysis.structure import segment_sections
@@ -142,6 +143,33 @@ def run_tonal(
 
 
 # ------------------------------------------------------------- transcription
+ATTACK_HOP = 256
+
+
+def annotate_attacks(notes: list[NoteEvent], audio: AudioBuffer) -> list[NoteEvent]:
+    """Attach the relative onset strength of ``audio`` at each note start.
+
+    Onset strength is divided by its rolling 90th percentile over 3 s so the
+    value is comparable across quiet and loud passages.
+    """
+    if not notes:
+        return notes
+    y = audio.mono_at(ANALYSIS_SR)
+    env = librosa.onset.onset_strength(y=y, sr=ANALYSIS_SR, hop_length=ATTACK_HOP)
+    if env.size == 0:
+        return notes
+    width = max(3, int(3.0 * ANALYSIS_SR / ATTACK_HOP))
+    ref = scipy.ndimage.percentile_filter(env, 90, size=width) + 1e-6
+    rel = env / ref
+    out = []
+    for n in notes:
+        f = int(n.start * ANALYSIS_SR / ATTACK_HOP)
+        seg = rel[max(0, f - 3) : f + 4]
+        a = float(seg.max()) if seg.size else 0.0
+        out.append(n.model_copy(update={"attack": round(a, 3)}))
+    return out
+
+
 def pick_sources(
     mix: AudioBuffer, stems: Mapping[str, AudioBuffer]
 ) -> dict[NoteRole, tuple[str, AudioBuffer]]:
@@ -190,6 +218,8 @@ def run_transcription(
             notes, source_name = out.result, "other"
             warnings.append("melody: vocals near-silent; melody taken from accompaniment")
         warnings.extend(out.warnings)
+        if role in ("melody", "bass"):
+            notes = annotate_attacks(notes, stems.get(source_name, mix))
         polyphonic = bool(getattr(out.adapter_cls, "polyphonic", False))
         tracks.append(
             TrackPart(

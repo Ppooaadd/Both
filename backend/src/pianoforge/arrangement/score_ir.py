@@ -15,10 +15,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from pianoforge.analysis.ir import PITCH_CLASS_NAMES, ChordQuality
 
 TPQ = 480
-SCORE_SCHEMA_VERSION = 1
+SCORE_SCHEMA_VERSION = 2
 
 Hand = Literal["rh", "lh"]
 NoteRole = Literal["melody", "harmony", "bass", "accomp"]
+
+
+def swing_map(frac: float, swing: float) -> float:
+    """Written position within a beat -> played position (0.5 -> ``swing``)."""
+    if frac < 0.5:
+        return frac * 2 * swing
+    return swing + (frac - 0.5) * 2 * (1 - swing)
 
 
 class _Frozen(BaseModel):
@@ -92,6 +99,12 @@ class ScoreIR(_Frozen):
     pedal: list[PedalSpan]
     # Source-audio time (s) of every score beat, for syncing with the original.
     beat_times: list[float]
+    # Performance time (s from the start of the rendered audio) of every score
+    # beat. Empty (schema v1) means a steady tempo_bpm.
+    performance_beats: list[float] = Field(default_factory=list)
+    timing: Literal["original", "steady"] = "steady"
+    # Played position of written off-beat eighths (0.5 = straight).
+    swing: float = Field(default=0.5, ge=0.5, lt=0.8)
     show_fingering: bool
     stats: dict[str, float | int | str]
     warnings: list[str] = Field(default_factory=list)
@@ -106,8 +119,31 @@ class ScoreIR(_Frozen):
         return self.measures * self.measure_ticks
 
     def seconds_per_tick(self) -> float:
+        """Average seconds per tick (the notated tempo)."""
         return 60.0 / (self.tempo_bpm * self.tpq)
+
+    def performed_tick(self, tick: float) -> float:
+        """Tick with swing applied to off-beats (the played, not written, position)."""
+        if self.swing == 0.5:
+            return tick
+        beat, frac = divmod(tick / self.tpq, 1.0)
+        return (beat + swing_map(frac, self.swing)) * self.tpq
+
+    def tick_to_seconds(self, tick: float) -> float:
+        """Performance time of a written tick: swing, then the beat map."""
+        pb = self.performance_beats
+        tick = self.performed_tick(tick)
+        if len(pb) < 2:
+            return tick * self.seconds_per_tick()
+        beat = tick / self.tpq
+        last = len(pb) - 1
+        if beat <= 0:
+            return beat * (pb[1] - pb[0])
+        if beat >= last:
+            return pb[last] + (beat - last) * (pb[last] - pb[last - 1])
+        i = int(beat)
+        return pb[i] + (beat - i) * (pb[i + 1] - pb[i])
 
     @property
     def duration_s(self) -> float:
-        return self.total_ticks * self.seconds_per_tick()
+        return self.tick_to_seconds(self.total_ticks)

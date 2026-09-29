@@ -33,6 +33,30 @@ def _to_delta(abs_msgs: list[tuple[int, int, mido.Message | mido.MetaMessage]]) 
     return track
 
 
+def _played(score: ScoreIR, tick: int) -> int:
+    """MIDI is the performance: swung off-beats sit at their played position."""
+    return round(score.performed_tick(tick))
+
+
+def tempo_map(score: ScoreIR) -> list[tuple[int, int, mido.MetaMessage]]:
+    """``set_tempo`` events that reproduce ``performance_beats`` exactly.
+
+    One event per beat whose length differs from the previous tempo by more
+    than 0.2 % (below that the timing error stays under a millisecond per beat).
+    """
+    pb = score.performance_beats
+    out: list[tuple[int, int, mido.MetaMessage]] = []
+    last = mido.bpm2tempo(score.tempo_bpm)
+    for k in range(len(pb) - 1):
+        us = round((pb[k + 1] - pb[k]) * 1_000_000)
+        if us <= 0:
+            continue
+        if k == 0 or abs(us - last) > 0.002 * last:
+            out.append((k * score.tpq, 0, mido.MetaMessage("set_tempo", tempo=us)))
+            last = us
+    return out
+
+
 def build_midi(score: ScoreIR) -> mido.MidiFile:
     mid = mido.MidiFile(type=1, ticks_per_beat=score.tpq)
     num, den = score.time_signature
@@ -43,6 +67,7 @@ def build_midi(score: ScoreIR) -> mido.MidiFile:
         (0, 0, mido.MetaMessage("time_signature", numerator=num, denominator=den)),
         (0, 0, mido.MetaMessage("key_signature", key=key_name(score.key.fifths, score.key.mode))),
     ]
+    conductor.extend(tempo_map(score))
     for sec in score.sections:
         conductor.append((sec.start, 1, mido.MetaMessage("marker", text=f"Section {sec.label}")))
     for ch in score.chords:
@@ -59,13 +84,17 @@ def build_midi(score: ScoreIR) -> mido.MidiFile:
                 continue
             msgs.append(
                 (
-                    n.start,
+                    _played(score, n.start),
                     2,
                     mido.Message("note_on", channel=channel, note=n.pitch, velocity=n.velocity),
                 )
             )
             msgs.append(
-                (n.end, 1, mido.Message("note_off", channel=channel, note=n.pitch, velocity=0))
+                (
+                    _played(score, n.end),
+                    1,
+                    mido.Message("note_off", channel=channel, note=n.pitch, velocity=0),
+                )
             )
         if hand == "lh":
             # Pedal lives on the left-hand track (channel 1) but is also sent on channel 0.
@@ -73,7 +102,7 @@ def build_midi(score: ScoreIR) -> mido.MidiFile:
                 for chan in (0, 1):
                     msgs.append(
                         (
-                            p.start,
+                            _played(score, p.start),
                             3,
                             mido.Message(
                                 "control_change", channel=chan, control=SUSTAIN_CC, value=127
@@ -82,7 +111,7 @@ def build_midi(score: ScoreIR) -> mido.MidiFile:
                     )
                     msgs.append(
                         (
-                            p.end,
+                            _played(score, p.end),
                             0,
                             mido.Message(
                                 "control_change", channel=chan, control=SUSTAIN_CC, value=0

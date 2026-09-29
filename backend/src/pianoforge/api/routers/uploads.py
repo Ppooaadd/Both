@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, status
 
 from pianoforge.api.deps import CurrentUser, DbDep, SettingsDep, StorageDep, user_rate_limit
 from pianoforge.api.errors import APIError, PayloadTooLarge
-from pianoforge.api.schemas import UploadCreateIn, UploadCreateOut
+from pianoforge.api.schemas import FORMATS_HINT, UploadCreateIn, UploadCreateOut
 from pianoforge.db.enums import AssetStatus
 from pianoforge.db.models import AudioAsset
 from pianoforge.storage import keys as K
@@ -28,7 +28,7 @@ async def create_upload(
 ) -> UploadCreateOut:
     if body.mime_type not in settings.allowed_mime_types:
         raise APIError(
-            "MP3, WAV, M4A 파일만 업로드할 수 있습니다.",
+            FORMATS_HINT,
             code="unsupported_media_type",
             status_code=415,
         )

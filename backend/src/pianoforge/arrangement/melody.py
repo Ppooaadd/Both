@@ -27,6 +27,13 @@ def select_melody(ir: AnalysisIR, source: MelodySource) -> tuple[list[NoteEvent]
     return [], "none"
 
 
+# Typical salience of a clear note (velocity ~90, confidence ~0.6, 0.3 s):
+# dividing by this puts salience on the same scale as the distance term.
+SALIENCE_SCALE = 150.0
+# A note half a grid step away must be about twice as salient to win the slot.
+DISTANCE_WEIGHT = 2.0
+
+
 def _salience(n: NoteEvent) -> float:
     # Loud, confident and long notes win quantisation collisions.
     return n.velocity * (0.5 + n.confidence) + 2.0 * (n.end - n.start)
@@ -35,18 +42,21 @@ def _salience(n: NoteEvent) -> float:
 def build_melody(
     notes: list[NoteEvent], tl: Timeline, shift: int, profile: Profile, grid: int
 ) -> list[Ev]:
-    # 1. Quantise; collisions on one grid point keep the most salient note.
+    # 1. Quantise. When several notes land on one grid point, the note played
+    #    closest to it wins (a note on the beat beats an off-beat neighbour
+    #    that rounds onto the same beat); salience breaks near-ties.
     by_onset: dict[int, tuple[float, Ev]] = {}
     for n in notes:
         if n.start_beat is None or n.end_beat is None:
             continue
-        s = quantize(tl.to_ticks(n.start_beat), grid)
+        raw = tl.to_ticks(n.start_beat)
+        s = quantize(raw, grid)
         e = quantize(tl.to_ticks(n.end_beat), grid)
         if s < 0:
             continue
         e = max(e, s + grid)
         ev = Ev("rh", n.pitch + shift, s, e, n.velocity, "melody")
-        score = _salience(n)
+        score = _salience(n) / SALIENCE_SCALE - DISTANCE_WEIGHT * abs(raw - s) / grid
         if s not in by_onset or score > by_onset[s][0]:
             by_onset[s] = (score, ev)
     events = [ev for _, ev in sorted(by_onset.values(), key=lambda x: x[1].start)]

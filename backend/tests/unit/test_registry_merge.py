@@ -161,7 +161,7 @@ def test_merge_derives_missing_tracks_and_sets_beats() -> None:
                 engine="pyin@1",
                 polyphonic=False,
                 # 40 is below melody range and must be folded up by octaves.
-                notes=[_n(0.0, 0.5, 72), _n(0.5, 1.0, 40), _n(1.0, 1.01, 74)],
+                notes=[_n(0.0, 0.5, 72), _n(0.5, 1.0, 28), _n(1.0, 1.01, 74)],
             ),
             TrackPart(role="bass", source="bass", engine="pyin@1", polyphonic=False, notes=[]),
             TrackPart(role="harmony", source="other", engine="pyin@1", polyphonic=False, notes=[]),
@@ -178,7 +178,7 @@ def test_merge_derives_missing_tracks_and_sets_beats() -> None:
         transcription=transcription,
     )
     melody = ir.tracks["melody"].notes
-    assert [n.pitch for n in melody] == [72, 64]  # 40 folded to 64; 10 ms note dropped
+    assert [n.pitch for n in melody] == [72, 40]  # 28 folded to 40 (E2); 10 ms note dropped
     assert melody[1].start_beat == pytest.approx(1.0)
     assert [n.pitch for n in ir.tracks["bass"].notes] == [36, 43]
     assert ir.tracks["harmony"].source == "chords"

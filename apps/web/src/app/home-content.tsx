@@ -21,7 +21,7 @@ export function HomeContent() {
     <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start">
       <section className="flex flex-col gap-6 lg:sticky lg:top-24">
         <div className="flex flex-col gap-3">
-          <p className="font-mono text-xs tracking-wide text-brass">MP3 · WAV · M4A → 피아노 악보</p>
+          <p className="font-mono text-xs tracking-wide text-brass">MP3 · WAV · M4A · FLAC → 피아노 악보</p>
           <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
             좋아하는 곡을 내 실력에 맞는 피아노 악보로
           </h1>

@@ -49,6 +49,12 @@ ml = [
     "pretty-midi>=0.2.10",
     "resampy>=0.4",
     "scikit-learn>=1.3",
+    # Beat This! beat/downbeat tracker. The checkpoint is fetched on first use
+    # (or baked into the worker image at /opt/models/beat_this/final0.ckpt).
+    "beat-this>=1.1",
+    "einops>=0.7",
+    "rotary-embedding-torch>=0.6",
+    "soxr>=0.3",
 ]
 beats = ["madmom>=0.16.1"]
 dev = [

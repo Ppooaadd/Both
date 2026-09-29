@@ -127,7 +127,6 @@ class SynthRenderer(AudioRenderer):
         return True
 
     def render(self, score: ScoreIR, midi: Path, wav: Path) -> Path:
-        spt = score.seconds_per_tick()
         total = int((score.duration_s + TAIL_S) * SR)
         out = np.zeros(total, dtype=np.float32)
         pedals = sorted((p.start, p.end) for p in score.pedal)
@@ -138,8 +137,9 @@ class SynthRenderer(AudioRenderer):
                 if ps <= end_tick < pe:
                     end_tick = pe
                     break
-            s = int(n.start * spt * SR)
-            hold = int((end_tick - n.start) * spt * SR)
+            t0 = score.tick_to_seconds(n.start)
+            s = int(t0 * SR)
+            hold = int((score.tick_to_seconds(end_tick) - t0) * SR)
             tone = piano_tone(n.pitch)
             length = min(hold + release, len(tone), total - s)
             if length <= 0:

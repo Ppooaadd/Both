@@ -66,7 +66,8 @@ def _staff(score: ScoreIR, hand: str, flats: bool, fingering: bool) -> stream.Pa
         # Text-only tempo (plus <sound tempo> for playback): the metronome note
         # glyph is a SMuFL private-use character that PDF conversion cannot draw.
         bpm = round(score.tempo_bpm)
-        mark = tempo.MetronomeMark(text=f"{tempo_word(bpm)} ({bpm} BPM)", number=bpm)
+        feel = " Swing" if score.swing >= 0.55 else ""
+        mark = tempo.MetronomeMark(text=f"{tempo_word(bpm)}{feel} ({bpm} BPM)", number=bpm)
         mark.numberImplicit = True
         part.insert(0, mark)
 

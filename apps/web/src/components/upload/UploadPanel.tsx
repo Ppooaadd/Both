@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { errorMessage } from "@/lib/api/client";
 import { qk } from "@/lib/api/queries";
 import { defaultParams, difficulties, type Difficulty } from "@/lib/api/schemas";
-import { ACCEPT_ATTR, uploadAndCreateProject, validateFile, type UploadPhase } from "@/lib/api/upload";
+import { ACCEPT_ATTR, FORMATS_LABEL, uploadAndCreateProject, validateFile, type UploadPhase } from "@/lib/api/upload";
 import { DIFFICULTY_HINT, DIFFICULTY_LABEL } from "@/lib/music";
 import { cn, formatBytes } from "@/lib/utils";
 
@@ -103,8 +103,8 @@ export function UploadPanel() {
           <>
             <UploadIcon className="size-8 text-muted-foreground transition-colors group-hover:text-primary" />
             <div>
-              <p className="font-medium">MP3 · WAV · M4A 파일을 끌어다 놓거나 클릭해서 고르세요</p>
-              <p className="text-sm text-muted-foreground">최대 50MB · 무료 플랜 곡당 10분</p>
+              <p className="font-medium">음원 파일을 끌어다 놓거나 클릭해서 고르세요</p>
+              <p className="text-sm text-muted-foreground">{FORMATS_LABEL} · 최대 100MB · 무료 플랜 곡당 10분</p>
             </div>
           </>
         )}

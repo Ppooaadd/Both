@@ -8,6 +8,8 @@ from typing import ClassVar
 
 import librosa
 import numpy as np
+import numpy.typing as npt
+import scipy.ndimage
 
 from pianoforge.analysis.adapters._rhythm import (
     HOP,
@@ -24,6 +26,35 @@ from pianoforge.analysis.adapters._rhythm import (
 from pianoforge.analysis.interfaces import BeatResult, BeatTracker, ProgressFn, _noop
 from pianoforge.analysis.ir import TimeSignature
 from pianoforge.audio.buffer import AudioBuffer
+
+LOCAL_TEMPO_SMOOTH_S = 6.0
+# |log2(local/global) - k| below this counts as an octave (metrical level) error.
+OCTAVE_TOLERANCE = 0.1
+
+
+def fold_octaves(local: npt.NDArray[np.float64], global_bpm: float) -> npt.NDArray[np.float64]:
+    """Keep a local tempo curve in the same metrical level as the global tempo.
+
+    Local estimates may lock onto eighth notes (2x) or half notes (0.5x). When
+    the curve's median sits near a power-of-two multiple of the global tempo it
+    is an octave error and the curve is scaled back; any other ratio (a real
+    tempo change the global comb cannot represent) is trusted. Individual
+    frames are then folded to within a factor sqrt(2) of the curve's centre.
+    """
+    centre = float(np.median(local))
+    if centre <= 0 or global_bpm <= 0:
+        return local
+    octaves = float(np.log2(centre / global_bpm))
+    k = round(octaves)
+    if k != 0 and abs(octaves - k) < OCTAVE_TOLERANCE:
+        local = local / 2.0**k
+        centre /= 2.0**k
+    lo, hi = centre / np.sqrt(2), centre * np.sqrt(2)
+    out = local.astype(np.float64).copy()
+    for _ in range(3):
+        out = np.where(out > hi, out / 2, out)
+        out = np.where(out < lo, out * 2, out)
+    return out
 
 
 class LibrosaBeatTracker(BeatTracker):
@@ -43,10 +74,22 @@ class LibrosaBeatTracker(BeatTracker):
         onset_env = librosa.onset.onset_strength(y=y_mix, sr=SR, hop_length=HOP)
         progress(0.3)
         bpm = estimate_bpm(onset_env)
-        # High tightness keeps the DP on the estimated period; snapping below
-        # restores local timing.
+        # Time-varying tempo (6 s median-smoothed local estimates under a broad
+        # prior) lets the DP follow drift and tempo changes; snapping below
+        # restores beat-level timing. Bench (fallback only): beat F 0.87 -> 0.93.
+        local = librosa.feature.tempo(
+            onset_envelope=onset_env,
+            sr=SR,
+            hop_length=HOP,
+            aggregate=None,
+            start_bpm=120.0,
+            std_bpm=1.0,
+            ac_size=8.0,
+        )
+        width = max(3, int(LOCAL_TEMPO_SMOOTH_S * SR / HOP))
+        local = fold_octaves(scipy.ndimage.median_filter(local, size=width), bpm)
         _, frames = librosa.beat.beat_track(
-            onset_envelope=onset_env, sr=SR, hop_length=HOP, bpm=bpm, tightness=400, trim=False
+            onset_envelope=onset_env, sr=SR, hop_length=HOP, bpm=local, tightness=100, trim=False
         )
         progress(0.6)
 

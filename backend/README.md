@@ -61,13 +61,17 @@ Docker Compose 기반 전체 스택은 Phase 5에서 `infra/`에 제공한다.
 |---|---|---|
 | `PF_SEPARATOR_CHAIN` | `demucs,hpss,passthrough` | Demucs 실패(OOM 등) 시 HPSS로 자동 전환 |
 | `PF_TRANSCRIBER_CHAIN` | `basic_pitch,pyin` | pYIN은 단선율 전용. 화성은 코드 인식 결과로 합성 |
-| `PF_BEAT_TRACKER_CHAIN` | `madmom,librosa,fixed` | madmom 0.16은 최신 numpy에서 import가 실패해 자동으로 건너뜀 |
+| `PF_BEAT_TRACKER_CHAIN` | `beat_this,madmom,librosa,fixed` | Beat This!(ISMIR 2024, `ml` extra)가 박·마디 첫 박을 찾고, 없으면 madmom → librosa(시변 템포 DP). madmom 0.16은 최신 numpy에서 import가 실패해 자동으로 건너뜀 |
 | `PF_KEY_DETECTOR_CHAIN` | `krumhansl` | |
 | `PF_CHORD_RECOGNIZER_CHAIN` | `hmm,template` | |
 | `PF_ENGRAVER_CHAIN` | `verovio,musescore` | PDF 악보. 둘 다 실패하면 MusicXML만 제공하고 경고를 남김 |
 | `PF_RENDERER_CHAIN` | `fluidsynth,synth` | 피아노 오디오. FluidSynth에는 SoundFont가 필요 (`PF_SOUNDFONT_PATH`) |
 
 워커는 기동 시 `adapter_availability` 로그로 가용성 매트릭스를 출력한다.
+
+## 정확도 벤치마크
+
+정답이 있는 합성곡과 실제 노래로 박자·멜로디·편곡 정확도를 수치화한다. 알고리즘을 바꾸면 [bench/README.md](bench/README.md)의 명령으로 전후를 비교한다.
 
 ### 알려진 한계 (DSP fallback)
 

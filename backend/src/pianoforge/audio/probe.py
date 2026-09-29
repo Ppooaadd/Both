@@ -78,7 +78,8 @@ def probe_audio(
     if not containers & set(settings.allowed_containers):
         raise AudioValidationError(
             "unsupported_container",
-            "지원하지 않는 형식입니다. MP3, WAV, M4A 파일만 업로드할 수 있습니다.",
+            "지원하지 않는 형식입니다. "
+            "MP3, WAV, M4A, FLAC, OGG, OPUS, AIFF, WMA 파일을 올려 주세요.",
         )
 
     audio_streams = [s for s in streams if isinstance(s, dict) and s.get("codec_type") == "audio"]

@@ -79,7 +79,7 @@ type UserOut = { id: string; email: string; display_name: string; plan: "free" |
 
 - 확장자: `.mp3 .wav .m4a .aac .mp4`
 - MIME: `audio/mpeg`, `audio/wav`, `audio/mp4`, `audio/x-m4a`, `audio/aac` 등
-- 최대 50MB. presigned POST 정책의 `content-length-range`로 S3에서도 강제한다.
+- 최대 100MB. 형식: MP3, WAV, M4A/AAC, FLAC, OGG(Vorbis/Opus), WebM(오디오), AIFF, WMA. presigned POST 정책의 `content-length-range`로 S3에서도 강제한다.
 - 서버 측 객체 키는 `raw/{user_id}/{upload_id}`이며, 원본 파일명은 표시용으로만 저장한다.
 
 ### `POST /projects`
@@ -93,6 +93,7 @@ type UserOut = { id: string; email: string; display_name: string; plan: "free" |
     "transpose": 0,
     "simplify_key": false,
     "tempo_scale": 1.0,
+    "timing": "original | steady",
     "melody_source": "auto | vocals | other",
     "left_hand_pattern": "auto | root | block | alberti | arpeggio | stride",
     "quantize_grid": "auto | 1/4 | 1/8 | 1/16 | 1/8t",
@@ -162,9 +163,14 @@ type ScoreIR = {
   sections: { start: number; label: string }[];
   pedal: { start: number; end: number }[];
   beat_times: number[];      // 원음에서 각 악보 박의 시각(초). 원곡과 동기화 재생에 사용
+  performance_beats: number[]; // 렌더링된 피아노 음원에서 각 악보 박의 시각(초, 0부터)
+  timing: "original" | "steady"; // original = 원곡의 박자 흐름(템포 변화·흔들림)을 그대로 연주
+  swing: number;             // 뒷박 8분음표가 실제로 연주되는 위치 (0.5 = 스트레이트, 0.67 = 셋잇단 스윙)
   show_fingering: boolean; stats: object; warnings: string[];
 };
 ```
+
+악보 위치(tick) → 연주 시각(초) 변환: tick을 박 단위로 나눈 뒤 박 안의 위치에 스윙을 적용하고, `performance_beats`로 선형 보간한다. 박 범위를 벗어나면 마지막 박 간격으로 연장한다. MIDI 파일은 같은 시각이 되도록 박마다 `set_tempo`를 넣고 스윙된 위치에 음을 기록한다. `performance_beats`가 비어 있으면(이전 버전 악보) `tempo_bpm`의 일정한 템포다.
 
 같은 손 안에서는 같은 시작점의 음들이 같은 길이를 갖고, 다음 시작점 전에 끝난다 (chord stream). 그래서 피아노 롤은 음을 그대로 그리면 된다.
 

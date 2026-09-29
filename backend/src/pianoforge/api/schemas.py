@@ -77,7 +77,11 @@ class SessionOut(BaseModel):
 
 
 # ---------------------------------------------------------------------- upload
-ALLOWED_EXTENSIONS = (".mp3", ".wav", ".m4a", ".aac", ".mp4")
+ALLOWED_EXTENSIONS = (
+    ".mp3", ".wav", ".m4a", ".aac", ".mp4", ".flac", ".ogg", ".oga", ".opus", ".webm",
+    ".aif", ".aiff", ".wma",
+)  # fmt: skip
+FORMATS_HINT = "MP3, WAV, M4A, FLAC, OGG, OPUS, AIFF, WMA 파일을 업로드할 수 있습니다."
 
 
 class UploadCreateIn(_In):
@@ -91,7 +95,7 @@ class UploadCreateIn(_In):
         name = v.replace("\\", "/").rsplit("/", 1)[-1]
         name = "".join(ch for ch in name if ch.isprintable())
         if not name.lower().endswith(ALLOWED_EXTENSIONS):
-            raise ValueError("MP3, WAV, M4A 파일만 업로드할 수 있습니다.")
+            raise ValueError(FORMATS_HINT)
         return name
 
     @field_validator("mime_type")

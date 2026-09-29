@@ -18,7 +18,7 @@ describe("upload validation", () => {
   it("rejects wrong types, empty and oversized files", () => {
     expect(validateFile(file("a.exe", "application/x-msdownload"))).toMatch(/MP3/);
     expect(validateFile(file("a.mp3", "audio/mpeg", 0))).toMatch(/빈 파일/);
-    expect(validateFile(file("a.mp3", "audio/mpeg", MAX_UPLOAD_BYTES + 1))).toMatch(/50MB/);
+    expect(validateFile(file("a.mp3", "audio/mpeg", MAX_UPLOAD_BYTES + 1))).toMatch(/100MB/);
     expect(validateFile(file("a.mp3", "audio/mpeg"))).toBeNull();
   });
 });

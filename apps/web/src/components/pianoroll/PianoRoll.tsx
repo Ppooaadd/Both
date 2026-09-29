@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { Score, ScoreNote } from "@/lib/api/schemas";
-import { noteName, secondsPerTick } from "@/lib/music";
+import { noteName } from "@/lib/music";
+import { timeMap } from "@/lib/timing";
 import { cn } from "@/lib/utils";
 import { drawRoll, readColors, type RollColors } from "./draw";
 import {
@@ -43,7 +44,7 @@ export function PianoRoll({ score, getTime, playing, onSeek, hands, follow = tru
   const drag = useRef<{ x: number; scroll: number; moved: boolean } | null>(null);
 
   const range = useMemo(() => pitchRange(score.notes), [score.notes]);
-  const spt = secondsPerTick(score.tempo_bpm, score.tpq);
+  const tm = useMemo(() => timeMap(score), [score]);
   const vp: Viewport = useMemo(
     () => ({ width: size.width, height: size.height, scrollX, pxPerBeat }),
     [size, scrollX, pxPerBeat],
@@ -99,7 +100,7 @@ export function PianoRoll({ score, getTime, playing, onSeek, hands, follow = tru
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const tick = playheadTick ?? getTime() / spt;
+      const tick = playheadTick ?? tm.secToTick(getTime());
       drawRoll(ctx, {
         score,
         vp: v,
@@ -111,7 +112,7 @@ export function PianoRoll({ score, getTime, playing, onSeek, hands, follow = tru
         fontFamily: getComputedStyle(canvas).fontFamily || "sans-serif",
       });
     },
-    [score, range, hands, hover, getTime, spt],
+    [score, range, hands, hover, getTime, tm],
   );
 
   // Static repaint whenever inputs change.
@@ -125,7 +126,7 @@ export function PianoRoll({ score, getTime, playing, onSeek, hands, follow = tru
     if (!playing) return;
     let raf = 0;
     const loop = () => {
-      const tick = getTime() / spt;
+      const tick = tm.secToTick(getTime());
       if (follow) {
         const next = clampScroll(followScroll(tick, vpRef.current, score.tpq), score, vpRef.current);
         if (Math.abs(next - vpRef.current.scrollX) > 1) {
@@ -138,7 +139,7 @@ export function PianoRoll({ score, getTime, playing, onSeek, hands, follow = tru
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [playing, follow, getTime, spt, paint, score]);
+  }, [playing, follow, getTime, tm, paint, score]);
 
   const zoomAt = useCallback(
     (factor: number, anchorX: number) => {
@@ -205,7 +206,7 @@ export function PianoRoll({ score, getTime, playing, onSeek, hands, follow = tru
     drag.current = null;
     if (d && !d.moved) {
       const { x } = local(e);
-      if (x > KEYBOARD_WIDTH) onSeek(xToTick(x, vpRef.current, score.tpq) * spt);
+      if (x > KEYBOARD_WIDTH) onSeek(Math.max(0, tm.tickToSec(xToTick(x, vpRef.current, score.tpq))));
     }
   };
 

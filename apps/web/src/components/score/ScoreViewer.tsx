@@ -9,7 +9,8 @@ import { errorMessage } from "@/lib/api/client";
 
 type Props = {
   arrangementId: string;
-  bpm: number;
+  /** Performance time (s) -> written position in quarter notes. */
+  toQuarters: (seconds: number) => number;
   getTime: () => number;
   playing: boolean;
 };
@@ -19,7 +20,7 @@ type Props = {
  * OSMD cursor with playback. Rendered on white "paper" in both themes so the
  * engraving keeps full contrast.
  */
-export function ScoreViewer({ arrangementId, bpm, getTime, playing }: Props) {
+export function ScoreViewer({ arrangementId, toQuarters, getTime, playing }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
@@ -77,7 +78,7 @@ export function ScoreViewer({ arrangementId, bpm, getTime, playing }: Props) {
     const step = () => {
       const osmd = osmdRef.current;
       if (osmd) {
-        const quarters = (getTime() * bpm) / 60;
+        const quarters = toQuarters(getTime());
         if (quarters < last) osmd.cursor.reset();
         last = quarters;
         const cursor = osmd.cursor;
@@ -95,7 +96,7 @@ export function ScoreViewer({ arrangementId, bpm, getTime, playing }: Props) {
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [playing, state, bpm, getTime]);
+  }, [playing, state, toQuarters, getTime]);
 
   return (
     <div className="relative min-h-[320px] overflow-auto rounded-lg border bg-white text-black">

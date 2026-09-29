@@ -16,6 +16,9 @@ _LOCK = threading.Lock()
 
 # Per-role thresholds. Melody favours precision; harmony favours recall.
 _ROLE_PARAMS: dict[str, dict[str, float | bool]] = {
+    # Checked against the benchmark (bench/): higher onset thresholds or no
+    # melodia raise precision but drop real notes, which the arrangement cannot
+    # recover; these values keep the most notes.
     "melody": {"onset_threshold": 0.55, "frame_threshold": 0.35, "min_ms": 80.0, "melodia": True},
     "bass": {"onset_threshold": 0.5, "frame_threshold": 0.3, "min_ms": 100.0, "melodia": True},
     "harmony": {

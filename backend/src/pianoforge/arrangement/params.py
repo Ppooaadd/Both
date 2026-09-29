@@ -17,6 +17,8 @@ from pianoforge.db.enums import Difficulty
 QuantizeGrid = Literal["auto", "1/4", "1/8", "1/16", "1/8t"]
 LeftHandPattern = Literal["auto", "root", "block", "alberti", "arpeggio", "stride"]
 MelodySource = Literal["auto", "vocals", "other"]
+# original: the piano follows the recording's beat-by-beat timing; steady: metronomic.
+Timing = Literal["original", "steady"]
 
 
 class ArrangementParams(BaseModel):
@@ -28,6 +30,7 @@ class ArrangementParams(BaseModel):
         default=False, description="Beginner: transpose to the nearest of C/G/F/Am/Dm"
     )
     tempo_scale: float = Field(default=1.0, ge=0.5, le=1.5)
+    timing: Timing = "original"
     melody_source: MelodySource = "auto"
     left_hand_pattern: LeftHandPattern = "auto"
     quantize_grid: QuantizeGrid = "auto"

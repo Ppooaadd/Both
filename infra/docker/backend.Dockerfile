@@ -3,7 +3,8 @@
 # PianoForge backend image, one Dockerfile with two targets:
 #   api     FastAPI (uvicorn)                            ~ small, no audio tools
 #   worker  Celery worker/beat: ffmpeg, FluidSynth + SoundFont, cairo (PDF),
-#           and (WITH_ML=true, default) Demucs + Basic Pitch with preloaded weights
+#           and (WITH_ML=true, default) Demucs, Basic Pitch and Beat This! with
+#           preloaded weights
 #
 # Build context: repository root.
 #   docker build -f infra/docker/backend.Dockerfile --target api .
@@ -71,6 +72,8 @@ ARG WITH_ML=true
 # CPU wheels by default; the GPU overlay passes a CUDA index (e.g. .../whl/cu126).
 ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
 ARG TORCH_VERSION=2.11.0
+# Beat This! (ISMIR 2024) checkpoint, MIT licence.
+ARG BEAT_THIS_URL=https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt
 ENV TORCH_HOME=/opt/models/torch \
     PF_SOUNDFONT_PATH=/usr/share/sounds/sf2/FluidR3_GM.sf2
 
@@ -87,10 +90,14 @@ RUN --mount=type=secret,id=extra_ca,required=false \
       && pip install "demucs==4.1.0" "onnxruntime>=1.18" "mir-eval>=0.7" "pretty-midi>=0.2.10" \
                      "resampy>=0.4" "scikit-learn>=1.3" \
       && pip install --no-deps "basic-pitch==0.4.0" \
+      && pip install "beat-this==1.1.0" "einops>=0.7" "rotary-embedding-torch>=0.6" "soxr>=0.3" \
       && mkdir -p /opt/models/torch \
       && REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
          python -c "from demucs.pretrained import get_model; get_model('htdemucs')" \
       && python -c "import basic_pitch; print('basic-pitch model:', basic_pitch.ICASSP_2022_MODEL_PATH)" \
+      && mkdir -p /opt/models/beat_this \
+      && SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt python -c "import urllib.request as u; u.urlretrieve('${BEAT_THIS_URL}', '/opt/models/beat_this/final0.ckpt')" \
+      && python -c "from beat_this.inference import load_model; load_model('/opt/models/beat_this/final0.ckpt'); print('beat_this model ok')" \
       && chmod -R a+rX /opt/models; \
     fi
 

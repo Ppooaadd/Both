@@ -14,11 +14,35 @@ export const ACCEPTED_TYPES: Record<string, string> = {
   "audio/mp4": ".m4a",
   "audio/x-m4a": ".m4a",
   "audio/aac": ".aac",
+  "audio/flac": ".flac",
+  "audio/x-flac": ".flac",
+  "audio/ogg": ".ogg",
+  "audio/opus": ".opus",
+  "audio/webm": ".webm",
+  "audio/aiff": ".aiff",
+  "audio/x-aiff": ".aiff",
+  "audio/x-ms-wma": ".wma",
 };
-export const ACCEPT_ATTR = ".mp3,.wav,.m4a,.aac,audio/mpeg,audio/wav,audio/mp4,audio/x-m4a";
-export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+export const ACCEPT_ATTR =
+  ".mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.opus,.webm,.aif,.aiff,.wma," +
+  "audio/mpeg,audio/wav,audio/mp4,audio/x-m4a,audio/flac,audio/ogg,audio/opus,audio/webm,audio/aiff";
+export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+export const FORMATS_LABEL = "MP3 · WAV · M4A · FLAC · OGG · OPUS · AIFF · WMA";
 
-const EXT_MIME: Record<string, string> = { mp3: "audio/mpeg", wav: "audio/wav", m4a: "audio/mp4", aac: "audio/aac" };
+const EXT_MIME: Record<string, string> = {
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  flac: "audio/flac",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/opus",
+  webm: "audio/webm",
+  aif: "audio/aiff",
+  aiff: "audio/aiff",
+  wma: "audio/x-ms-wma",
+};
 
 /** Browsers report inconsistent MIME types (or none) for audio; fall back to the extension. */
 export function resolveMime(file: File): string | null {
@@ -28,9 +52,9 @@ export function resolveMime(file: File): string | null {
 }
 
 export function validateFile(file: File): string | null {
-  if (!resolveMime(file)) return "MP3, WAV, M4A 파일만 업로드할 수 있습니다.";
+  if (!resolveMime(file)) return `${FORMATS_LABEL} 파일을 업로드할 수 있습니다.`;
   if (file.size === 0) return "빈 파일입니다.";
-  if (file.size > MAX_UPLOAD_BYTES) return "파일 크기는 최대 50MB까지 업로드할 수 있습니다.";
+  if (file.size > MAX_UPLOAD_BYTES) return "파일 크기는 최대 100MB까지 업로드할 수 있습니다.";
   return null;
 }
 

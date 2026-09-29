@@ -148,6 +148,25 @@ def _crop(
     return kept, new_spans, lo, last_bar - first_bar + 1
 
 
+def performance_beats(
+    beat_times: list[float], tempo_bpm: float, tempo_scale: float, timing: str
+) -> list[float]:
+    """Seconds of each score beat in the rendered performance, starting at 0.
+
+    ``original`` replays the recording's own beat timing (tempo drift, rubato,
+    tempo changes), scaled by ``tempo_scale``; ``steady`` is metronomic. A
+    non-increasing beat map falls back to steady.
+    """
+    n = len(beat_times)
+    steady = [round(k * 60.0 / tempo_bpm, 4) for k in range(n)]
+    if timing != "original" or n < 2:
+        return steady
+    t = np.asarray(beat_times, dtype=np.float64)
+    if np.any(np.diff(t) <= 0):
+        return steady
+    return [round(float(x), 4) for x in (t - t[0]) / tempo_scale]
+
+
 def arrange(ir: AnalysisIR, params: ArrangementParams, title: str) -> ScoreIR:
     profile: Profile = resolve_profile(params)
     warnings: list[str] = []
@@ -260,6 +279,7 @@ def arrange(ir: AnalysisIR, params: ArrangementParams, title: str) -> ScoreIR:
         if tick < total and (not sections or sections[-1].start != tick):
             sections.append(SectionMark(start=tick, label=sec.label))
     beat_times = tl.beat_times(total // TPQ + 1 + shift_ticks // TPQ)[shift_ticks // TPQ :]
+    performance = performance_beats(beat_times, tempo, params.tempo_scale, params.timing)
 
     return ScoreIR(
         title=title,
@@ -275,7 +295,13 @@ def arrange(ir: AnalysisIR, params: ArrangementParams, title: str) -> ScoreIR:
         sections=sections,
         pedal=pedal,
         beat_times=beat_times,
+        performance_beats=performance,
+        timing=params.timing,
+        swing=round(tl.swing, 3),
         show_fingering=profile.show_fingering,
-        stats=_stats(events, tempo, total, grid, pattern, melody_from),
+        stats={
+            **_stats(events, tempo, total, grid, pattern, melody_from),
+            "swing": round(tl.swing, 3),
+        },
         warnings=warnings,
     )

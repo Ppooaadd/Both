@@ -92,7 +92,7 @@ flowchart TD
 |---|---|---|---|
 | `SourceSeparator` | Demucs (htdemucs) | librosa HPSS + 저역 필터 | Passthrough (mix 그대로) |
 | `NoteTranscriber` | Basic Pitch (ONNX/TFLite) | librosa pYIN (단선율) | — (오류) |
-| `BeatTracker` | madmom DBN (설치 시) | librosa `beat_track` + PLP | 고정 120 BPM 그리드 |
+| `BeatTracker` | Beat This! (ISMIR 2024 트랜스포머) | madmom DBN (설치 시) → librosa 시변 템포 DP | 고정 120 BPM 그리드 |
 | `KeyDetector` | Krumhansl-Schmuckler (chroma CQT) | — | C major (신뢰도 0) |
 | `ChordRecognizer` | chroma 템플릿 + HMM Viterbi | 비트 단위 템플릿 매칭 | — |
 | `ScoreEngraver` | Verovio | MuseScore CLI (설치 시) | PDF 미제공 (MusicXML만) |
@@ -249,6 +249,7 @@ pianoforge/
 │   │   │   │   ├── separation_passthrough.py
 │   │   │   │   ├── transcribe_basic_pitch.py
 │   │   │   │   ├── transcribe_pyin.py
+│   │   │   │   ├── beats_beat_this.py
 │   │   │   │   ├── beats_madmom.py
 │   │   │   │   ├── beats_librosa.py
 │   │   │   │   ├── key_krumhansl.py
@@ -484,7 +485,7 @@ arr/{arrangement_id}/export/{format}
 
 ## 7. 보안 설계 요약
 
-- **업로드**: presigned POST에 `content-length-range`(최대 50MB) 및 키 고정. 워커에서 ffprobe로 컨테이너/코덱 화이트리스트(mp3, wav, aac/m4a) 및 최대 길이(무료 10분) 검증. 실패 시 `rejected` 후 즉시 삭제.
+- **업로드**: presigned POST에 `content-length-range`(최대 100MB) 및 키 고정. 워커에서 ffprobe로 컨테이너/코덱 화이트리스트(mp3, wav/aiff PCM, aac/alac/m4a, flac, ogg/opus/webm, wma) 및 최대 길이(무료 10분) 검증. 실패 시 `rejected` 후 즉시 삭제.
 - **처리 격리**: ffmpeg·ML은 워커 컨테이너에서만 실행, 비루트, read-only rootfs + tmpfs, CPU/메모리 제한, 태스크별 `time_limit`.
 - **인증**: argon2id, refresh token rotation + 재사용 탐지(family 폐기), CSRF는 SameSite=Lax + double-submit 토큰.
 - **인가**: 모든 조회에 소유자 조건. 다운로드는 5분 TTL presigned URL만 발급.
@@ -501,7 +502,7 @@ arr/{arrangement_id}/export/{format}
 | 오디오 렌더 | **FluidSynth + FluidR3_GM SF2** (`PF_SOUNDFONT_PATH`로 교체 가능) | Debian 패키지로 설치, 라이선스 허용(MIT), 오프라인 렌더 안정 |
 | 웹 악보 | **OpenSheetMusicDisplay** | MusicXML 직접 렌더, 커서 API로 재생 위치 동기화 |
 | 웹 재생 | **서버 렌더링 MP3** (Phase 4에서 Tone.js 대신 채택) | 들리는 소리가 다운로드 파일과 같고 샘플 호스팅이 필요 없음. `<audio>` 하나가 피아노 롤·악보 커서의 공통 시계 |
-| 비트 추적 | librosa 기본, madmom 선택 | madmom은 빌드 이슈가 잦아 optional extra로 분리 |
+| 비트 추적 | Beat This! 기본, librosa fallback | 벤치마크에서 박 F 0.87 → 0.98, 마디 첫 박 0.73 → 1.00. madmom은 최신 numpy와 호환되지 않아 선택 사항으로만 남김 |
 | 로컬 오브젝트 스토리지 | **RustFS** (S3 호환, Apache-2.0) | MinIO 공식 이미지가 더 이상 공개 배포되지 않음. 버킷·CORS 설정은 `pianoforge.storage.bootstrap`이 S3 API로 수행해 서버 종류에 묶이지 않음 |
 | Basic Pitch 설치 | `--no-deps` + ONNX 모델 | 패키지 메타데이터가 TensorFlow와 numpy<2를 요구함. ONNX 추론은 onnxruntime만 필요해 이미지가 약 1.5 GB 작고 numpy 2 유지 |
 | 진입점 | **Caddy** 하나 (`:3000`) | 웹·API·WebSocket·스토리지가 같은 origin이라 쿠키 세션·CSRF가 교차 사이트 규칙 없이 동작하고, 공개할 포트가 하나뿐 (Codespaces 등 포트 포워딩 환경) |
@@ -566,3 +567,30 @@ flowchart LR
 - 기동 순서는 healthcheck와 `service_completed_successfully`로 강제한다: postgres·redis·storage → migrate·storage-init → api·워커 → web → caddy.
 - GPU 오버레이(`docker-compose.gpu.yml`)는 워커를 CUDA torch로 빌드하고 `PF_DEMUCS_DEVICE=cuda`로 worker-ml에 GPU 1장을 할당한다.
 - **네트워크 자동 선택:** `make up`은 시작 전에 새 bridge 네트워크에서 컨테이너 두 개가 서로 통신되는지 확인한다(`infra/scripts/netcheck.sh`). 통신이 막힌 환경(일부 GitHub Codespaces)이면 `infra/.host-network` 표시 파일을 만들고 `docker-compose.host.yml`을 겹쳐 모든 컨테이너를 호스트 네트워크로 실행한다. 서비스 이름은 `extra_hosts`로 127.0.0.1에 매핑해 설정 변경이 필요 없다.
+
+## 11. 정확도 개선 (박자·빠진 음·원곡 재현)
+
+측정은 `backend/bench/`의 벤치마크로 한다: 정답이 있는 합성곡 10개(템포 흔들림, 템포 변화, 3/4, 스윙, 16분음표, 드럼 없는 발라드, 전주·못갖춘마디, 보컬 없는 곡)와 실제 노래 12곡(vocadito, CC BY 4.0, 합성 반주와 혼합).
+
+| 지표 | 이전 | 이후 |
+|---|---|---|
+| 박 위치 F-measure | 0.87 | 0.98 |
+| 마디 첫 박 F-measure | 0.73 | 1.00 |
+| 코드 일치율 | 0.95 | 0.995 |
+| 멜로디 채보 F1, 실제 노래 | 0.28 | 0.48 |
+| 원곡 멜로디 음 보존율 (초급 / 중급 / 고급) | 0.61 / 0.68 / 0.70 | 0.81 / 0.82 / 0.77 |
+| 편곡 멜로디 정밀도 (고급) | 0.54 | 0.64 |
+| 음 시작 오차 중앙값 | 31 ms | 7 ms |
+| 피아노 음원의 원곡 대비 어긋남 (p90) | 평균 69 ms, 템포 변화 곡 최대 수 초 | 0 ms |
+
+변경 내용:
+
+- **박자:** Beat This! 트랜스포머 추적기를 1순위로 추가했다. 20 ms 프레임을 포물선 보간으로 세분하고, 빠진 박을 채우고 중복 박을 지운다. 박자표와 마디 첫 박은 3박/4박 각각의 마디 위치 Viterbi 경로 중 우도가 높은 쪽으로 정한다(네트워크의 첫 박 확률 + 저음 어택·화성 변화 단서). librosa fallback은 시변 템포(6초 중앙값 평활, 2배·절반 박 오류 보정)로 템포 변화를 따라간다(ML 없는 이미지 기준 박 F 0.87 → 0.93, 마디 첫 박 0.73 → 0.85).
+- **원곡 타이밍 재현:** 악보는 일정한 박으로 쓰되, 연주(MP3/WAV/MIDI, 웹 피아노 롤·악보 커서)는 원곡의 박 시각(`performance_beats`)을 따른다. `timing=steady`로 연습용 일정 템포를 고를 수 있다.
+- **스윙:** 뒷박 8분음표 위치 분포로 스윙 비율을 찾아, 악보에는 스트레이트 8분음표 + "Swing"으로 쓰고 연주에는 원곡 비율을 적용한다.
+- **멜로디 정리:** 낮은 목소리가 한 옥타브 올라가던 음역 제한을 E2까지 넓혔다. 윗성부 선택 뒤 옥타브 오류를 선율 흐름 기준 Viterbi로 바로잡는다. 어택 없이 이어지는 같은 음(비브라토로 쪼개진 음)과 짧은 글라이드 음은 앞 음에 합친다. 어택 세기는 원 음원의 onset 강도를 3초 구간 90 백분위로 정규화한 값이다.
+- **빠진 음:** 여러 음이 한 격자 칸에 모이면 음량보다 칸에 가까운 음을 우선한다. 정박 음이 옆 엇박의 큰 음에 밀려 사라지던 문제다.
+- **입력 형식:** MP3, WAV, M4A/AAC 외에 FLAC, OGG(Vorbis/Opus), WebM(오디오), AIFF, WMA를 받는다. 업로드 한도는 100 MB.
+
+한계: 실제 노래의 음 단위 채보는 Basic Pitch 모델 자체가 상한이다(깨끗한 보컬에서도 F1 약 0.5). 설정 조정으로는 정밀도와 빠진 음 사이의 교환만 일어나서, 빠진 음이 적은 쪽을 택했다.
+

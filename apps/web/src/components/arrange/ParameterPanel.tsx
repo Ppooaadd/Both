@@ -10,7 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrangementParams, difficulties, type Difficulty } from "@/lib/api/schemas";
-import { DIFFICULTY_HINT, DIFFICULTY_LABEL, GRID_LABEL, MELODY_SOURCE_LABEL, NOTE_NAMES, PATTERN_LABEL, noteName } from "@/lib/music";
+import { DIFFICULTY_HINT, DIFFICULTY_LABEL, GRID_LABEL, MELODY_SOURCE_LABEL, NOTE_NAMES, PATTERN_LABEL, TIMING_LABEL, noteName } from "@/lib/music";
 
 const RANGE_OPTIONS = Array.from({ length: 108 - 21 + 1 }, (_, i) => 21 + i).filter((p) => p % 12 === 0 || p === 21 || p === 108);
 
@@ -115,6 +115,21 @@ export function ParameterPanel({ initial, keyTonic, pending, onSubmit }: Props) 
             </SelectTrigger>
             <SelectContent>
               {Object.entries(GRID_LABEL).map(([k, label]) => (
+                <SelectItem key={k} value={k}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-2">
+          <Label>연주 타이밍</Label>
+          <Select value={p.timing} onValueChange={(v) => set("timing", v as ArrangementParams["timing"])}>
+            <SelectTrigger aria-label="연주 타이밍">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(TIMING_LABEL).map(([k, label]) => (
                 <SelectItem key={k} value={k}>
                   {label}
                 </SelectItem>

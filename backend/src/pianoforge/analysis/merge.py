@@ -27,7 +27,7 @@ from pianoforge.analysis.ir import (
 from pianoforge.analysis.parts import RhythmPart, TonalPart, TranscriptionPart
 
 ROLE_RANGE: dict[str, tuple[int, int]] = {
-    "melody": (55, 96),  # G3..C7
+    "melody": (40, 96),  # E2..C7: low male voices keep their real octave
     "bass": (28, 60),  # E1..C4
     "harmony": (40, 84),  # E2..C6
 }
@@ -84,8 +84,103 @@ def reduce_monophonic(notes: list[NoteEvent], prefer: str) -> list[NoteEvent]:
             out.append(n)
         elif n.end > prev.end + 0.1:
             # Keep the audible tail of a longer, losing note.
-            out.append(n.model_copy(update={"start": prev.end}))
+            # The tail continues a sounding note: it has no attack of its own.
+            out.append(n.model_copy(update={"start": prev.end, "attack": 0.0}))
     return out
+
+
+def _overlap(a: NoteEvent, b: NoteEvent) -> float:
+    return max(0.0, min(a.end, b.end) - max(a.start, b.start))
+
+
+def fix_octaves(notes: list[NoteEvent], shift_cost: float = 4.0) -> list[NoteEvent]:
+    """Undo octave-up transcription errors in a one-voice line.
+
+    Viterbi over a per-note octave shift of 0 or -12: the cost is the melodic
+    leap between consecutive notes plus ``shift_cost`` per shifted note, so a
+    note is only moved down when that makes the line markedly smoother.
+    """
+    if len(notes) < 3:
+        return notes
+    shifts = (0, -12)
+    pitches = np.array([n.pitch for n in notes], dtype=np.float64)
+    cost = np.array([0.0, shift_cost])
+    back = np.zeros((len(notes), 2), dtype=np.int64)
+    for i in range(1, len(notes)):
+        new = np.empty(2)
+        for j, sj in enumerate(shifts):
+            leaps = [
+                cost[k] + abs((pitches[i] + sj) - (pitches[i - 1] + sk))
+                for k, sk in enumerate(shifts)
+            ]
+            k = int(np.argmin(leaps))
+            new[j] = leaps[k] + (shift_cost if sj else 0.0)
+            back[i, j] = k
+        cost = new
+    j = int(np.argmin(cost))
+    out = list(notes)
+    for i in range(len(notes) - 1, -1, -1):
+        if shifts[j]:
+            out[i] = notes[i].model_copy(update={"pitch": notes[i].pitch + shifts[j]})
+        j = int(back[i, j])
+    return out
+
+
+# A note start whose relative onset strength is below this has no audible attack.
+NO_ATTACK = 0.45
+CONTINUATION_GAP_S = 0.06
+GLIDE_MAX_S = 0.15
+
+
+def merge_continuations(notes: list[NoteEvent]) -> list[NoteEvent]:
+    """Join notes that continue the previous one instead of starting a new note.
+
+    Transcribers split a sustained sung note at vibrato dips and report short
+    neighbour pitches during glides. A note is folded into its predecessor
+    when it starts within ``CONTINUATION_GAP_S`` of it, has no attack
+    (``attack`` below ``NO_ATTACK``) and either repeats the pitch or is a short
+    (< ``GLIDE_MAX_S``) note within two semitones. Notes without attack data
+    fall back to joining only very short same-pitch fragments.
+    """
+    out: list[NoteEvent] = []
+    for n in sorted(notes, key=lambda x: x.start):
+        prev = out[-1] if out else None
+        if prev is not None and n.pitch == prev.pitch and n.start < prev.end:
+            # Same pitch sounding twice at once (e.g. after octave correction).
+            out[-1] = prev.model_copy(update={"end": max(prev.end, n.end)})
+            continue
+        if prev is None or not 0 <= n.start - prev.end <= CONTINUATION_GAP_S:
+            out.append(n)
+            continue
+        dur = n.end - n.start
+        if n.attack is None:
+            joins = n.pitch == prev.pitch and min(dur, prev.end - prev.start) < 0.12
+        else:
+            weak = n.attack < NO_ATTACK
+            joins = weak and (
+                n.pitch == prev.pitch or (abs(n.pitch - prev.pitch) <= 2 and dur < GLIDE_MAX_S)
+            )
+        if joins:
+            out[-1] = prev.model_copy(
+                update={
+                    "end": max(prev.end, n.end),
+                    "confidence": max(prev.confidence, n.confidence),
+                    "velocity": max(prev.velocity, n.velocity),
+                }
+            )
+        else:
+            out.append(n)
+    return out
+
+
+def melody_line(notes: list[NoteEvent]) -> list[NoteEvent]:
+    """One-voice melody from polyphonic transcriber output.
+
+    The top voice is taken (accompaniment bleeding into a vocal stem sits below
+    the tune), split notes are joined, and octave-up errors are corrected
+    against the line's own contour.
+    """
+    return merge_continuations(fix_octaves(reduce_monophonic(notes, prefer="high")))
 
 
 def _clean(notes: list[NoteEvent], role: str) -> list[NoteEvent]:
@@ -176,7 +271,7 @@ def merge_analysis(
     melody_part = by_role.get("melody")
     melody: list[NoteEvent] = []
     if melody_part:
-        melody = reduce_monophonic(_clean(melody_part.notes, "melody"), prefer="high")
+        melody = melody_line(_clean(melody_part.notes, "melody"))
         engines["transcriber.melody"] = melody_part.engine
 
     bass_part = by_role.get("bass")

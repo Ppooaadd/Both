@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     cookie_domain: str | None = None
 
     # --- upload policy ---
-    upload_max_bytes: int = 50 * 1024 * 1024
+    upload_max_bytes: int = 100 * 1024 * 1024
     upload_url_ttl_s: int = 15 * 60
     download_url_ttl_s: int = 5 * 60
     allowed_mime_types: list[str] = Field(
@@ -74,6 +74,14 @@ class Settings(BaseSettings):
             "audio/mp4",
             "audio/x-m4a",
             "audio/aac",
+            "audio/flac",
+            "audio/x-flac",
+            "audio/ogg",
+            "audio/opus",
+            "audio/webm",
+            "audio/aiff",
+            "audio/x-aiff",
+            "audio/x-ms-wma",
         ]
     )
     allowed_codecs: list[str] = Field(
@@ -83,12 +91,39 @@ class Settings(BaseSettings):
             "pcm_s24le",
             "pcm_s32le",
             "pcm_f32le",
+            "pcm_s16be",
+            "pcm_s24be",
+            "pcm_s32be",
+            "pcm_f32be",
+            "pcm_f64le",
+            "pcm_u8",
             "aac",
             "alac",
+            "flac",
+            "vorbis",
+            "opus",
+            "wmav1",
+            "wmav2",
+            "wmapro",
         ]
     )
     allowed_containers: list[str] = Field(
-        default_factory=lambda: ["mp3", "wav", "mov", "mp4", "m4a", "3gp", "3g2", "mj2"]
+        default_factory=lambda: [
+            "mp3",
+            "wav",
+            "mov",
+            "mp4",
+            "m4a",
+            "3gp",
+            "3g2",
+            "mj2",
+            "flac",
+            "ogg",
+            "matroska",
+            "webm",
+            "aiff",
+            "asf",
+        ]
     )
     max_duration_s_free: float = 10 * 60
     max_duration_s_pro: float = 20 * 60
@@ -112,7 +147,9 @@ class Settings(BaseSettings):
     # --- adapters (comma-separated fallback chains, first available wins) ---
     separator_chain: list[str] = Field(default_factory=lambda: ["demucs", "hpss", "passthrough"])
     transcriber_chain: list[str] = Field(default_factory=lambda: ["basic_pitch", "pyin"])
-    beat_tracker_chain: list[str] = Field(default_factory=lambda: ["madmom", "librosa", "fixed"])
+    beat_tracker_chain: list[str] = Field(
+        default_factory=lambda: ["beat_this", "madmom", "librosa", "fixed"]
+    )
     key_detector_chain: list[str] = Field(default_factory=lambda: ["krumhansl"])
     chord_recognizer_chain: list[str] = Field(default_factory=lambda: ["hmm", "template"])
     engraver_chain: list[str] = Field(default_factory=lambda: ["verovio", "musescore"])

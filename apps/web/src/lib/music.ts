@@ -39,8 +39,8 @@ export const PATTERN_LABEL: Record<ArrangementParams["left_hand_pattern"], strin
 };
 
 export const TIMING_LABEL: Record<ArrangementParams["timing"], string> = {
-  original: "원곡 박자 그대로",
-  steady: "일정한 템포 (연습용)",
+  original: "원곡 박자",
+  steady: "일정한 템포",
 };
 
 export const GRID_LABEL: Record<ArrangementParams["quantize_grid"], string> = {

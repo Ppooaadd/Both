@@ -1,0 +1,232 @@
+/*
+ * Galaxy theme: a skin over the existing layout.
+ *
+ * - `html.galaxy` swaps the design tokens for a deep-space palette. Every
+ *   component already paints through these tokens, so layout is untouched.
+ * - `.galaxy-glass-panel` / `.galaxy-neon-btn` are drop-in classes for any
+ *   box or button.
+ * - `.animate-fade-up` elements are revealed on scroll by ScrollReveal (GSAP).
+ * - #galaxy-canvas (Three.js) sits behind everything; #galaxy-click-layer
+ *   draws click bursts above everything without catching the pointer.
+ *
+ * Knobs (set on :root or any ancestor):
+ *   --galaxy-opacity   background brightness, 0..1 (default 0.9)
+ *   --glass-alpha      panel fill opacity, 0..1 (default 0.42)
+ *   --glass-blur       panel backdrop blur (default 14px)
+ */
+
+:root {
+  --galaxy-opacity: 0.9;
+  --glass-alpha: 0.42;
+  --glass-blur: 14px;
+  --neon-a: oklch(0.68 0.2 290); /* violet */
+  --neon-b: oklch(0.74 0.15 230); /* cyan */
+  --neon-c: oklch(0.72 0.22 340); /* magenta */
+  --star-gold: oklch(0.86 0.12 82);
+}
+
+/* ------------------------------------------------------------ space tokens */
+html.galaxy {
+  color-scheme: dark;
+  --background: oklch(0.13 0.035 282);
+  --foreground: oklch(0.95 0.012 275);
+  --card: oklch(0.2 0.045 285 / var(--glass-alpha));
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.18 0.045 285 / 0.94);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(0.74 0.16 285);
+  --primary-foreground: oklch(0.14 0.03 282);
+  --secondary: oklch(0.3 0.06 285 / 0.6);
+  --secondary-foreground: oklch(0.93 0.02 280);
+  --muted: oklch(0.27 0.045 282 / 0.55);
+  --muted-foreground: oklch(0.78 0.03 275);
+  --accent: oklch(0.34 0.08 290 / 0.6);
+  --accent-foreground: oklch(0.96 0.01 275);
+  --destructive: oklch(0.68 0.2 22);
+  --border: oklch(0.8 0.08 285 / 0.18);
+  --input: oklch(0.82 0.08 285 / 0.24);
+  --ring: oklch(0.78 0.14 225);
+  --brass: var(--star-gold);
+  --success: oklch(0.78 0.15 160);
+  --warning: oklch(0.84 0.14 80);
+  /* Piano roll: a dark, nearly opaque sheet so notes stay legible over stars. */
+  --roll-bg: oklch(0.12 0.03 282 / 0.9);
+  --roll-black-row: oklch(0.16 0.035 284 / 0.9);
+  --roll-grid: oklch(0.8 0.08 285 / 0.12);
+  --roll-bar: oklch(0.8 0.1 285 / 0.35);
+  --roll-rh: oklch(0.8 0.13 225);
+  --roll-lh: var(--star-gold);
+  --roll-playhead: var(--neon-c);
+  --roll-key-white: oklch(0.88 0.02 280);
+  --roll-key-black: oklch(0.16 0.03 282);
+
+  /* Painted under the WebGL canvas: the canvas has z-index -1, so the root
+     background must carry the base colour and <body> must stay transparent. */
+  background:
+    radial-gradient(ellipse 80% 60% at 15% -10%, oklch(0.28 0.12 295 / 0.55), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 100% 110%, oklch(0.3 0.12 230 / 0.35), transparent 60%),
+    oklch(0.1 0.03 280);
+  background-attachment: fixed;
+}
+
+html.galaxy body {
+  background: transparent;
+}
+
+html.galaxy ::selection {
+  background: oklch(0.7 0.18 290 / 0.45);
+}
+
+/* ------------------------------------------------------------- canvases */
+#galaxy-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+
+#galaxy-canvas.is-ready {
+  opacity: var(--galaxy-opacity);
+}
+
+#galaxy-click-layer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Component classes live in the components layer so Tailwind utilities on the
+   same element (sticky, bg-*, rounded-*) still win: layout is never overridden. */
+@layer components {
+  /* ---------------------------------------------------------- glass panel */
+  .galaxy-glass-panel {
+    position: relative;
+    background-color: oklch(0.2 0.045 285 / var(--glass-alpha));
+    background-image: linear-gradient(
+      135deg,
+      oklch(1 0 0 / 0.09) 0%,
+      oklch(1 0 0 / 0.02) 40%,
+      oklch(0.7 0.15 290 / 0.05) 100%
+    );
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+    border: 1px solid oklch(0.85 0.08 285 / 0.2);
+    box-shadow:
+      inset 0 1px 0 oklch(1 0 0 / 0.08),
+      0 18px 50px -18px oklch(0.35 0.2 290 / 0.55),
+      0 0 28px -10px oklch(0.7 0.14 230 / 0.28);
+  }
+
+  /* A faint rim light along the top edge. */
+  .galaxy-glass-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(120deg, oklch(0.78 0.15 290 / 0.55), transparent 35%, transparent 65%, oklch(0.78 0.13 225 / 0.45));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* ------------------------------------------------------------ neon button */
+  .galaxy-neon-btn {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    color: oklch(0.99 0 0);
+    background-image: linear-gradient(135deg, var(--neon-a), var(--neon-b));
+    border: 1px solid oklch(0.9 0.08 280 / 0.35);
+    box-shadow:
+      0 0 0 1px oklch(0.8 0.15 285 / 0.25),
+      0 0 18px -2px oklch(0.68 0.2 290 / 0.65),
+      0 0 42px -8px oklch(0.74 0.15 230 / 0.55);
+    text-shadow: 0 0 8px oklch(1 0 0 / 0.35);
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease,
+      filter 0.25s ease;
+  }
+
+  .galaxy-neon-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+    box-shadow:
+      0 0 0 1px oklch(0.85 0.15 285 / 0.4),
+      0 0 26px 0 oklch(0.68 0.2 290 / 0.8),
+      0 0 60px -6px oklch(0.74 0.15 230 / 0.7);
+  }
+
+  .galaxy-neon-btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .galaxy-neon-btn:focus-visible {
+    outline: 2px solid var(--neon-b);
+    outline-offset: 2px;
+  }
+
+  /* Light sweep across the button on hover. */
+  .galaxy-neon-btn::after {
+    content: "";
+    position: absolute;
+    inset: -40% auto -40% -60%;
+    width: 45%;
+    z-index: -1;
+    background: linear-gradient(100deg, transparent, oklch(1 0 0 / 0.35), transparent);
+    transform: skewX(-18deg) translateX(0);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .galaxy-neon-btn:hover:not(:disabled)::after {
+    opacity: 1;
+    animation: galaxy-sweep 0.9s ease forwards;
+  }
+
+  @keyframes galaxy-sweep {
+    to {
+      transform: skewX(-18deg) translateX(420%);
+    }
+  }
+
+}
+
+/* ----------------------------------------------------------- scroll reveal */
+/* Hidden only once the reveal script has announced itself (html.galaxy-js),
+   so content never disappears if JavaScript or GSAP fails to load. */
+html.galaxy-js .animate-fade-up:not([data-revealed]) {
+  opacity: 0;
+  transform: translateY(40px) scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.galaxy-js .animate-fade-up:not([data-revealed]) {
+    opacity: 1;
+    transform: none;
+  }
+  .galaxy-neon-btn,
+  .galaxy-neon-btn:hover:not(:disabled) {
+    transform: none;
+  }
+  .galaxy-neon-btn:hover:not(:disabled)::after {
+    animation: none;
+  }
+}
+
+/* Browsers without backdrop-filter get a more opaque panel instead. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .galaxy-glass-panel {
+    background-color: oklch(0.18 0.045 285 / 0.88);
+  }
+}

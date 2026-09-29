@@ -74,7 +74,10 @@ ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
 ARG TORCH_VERSION=2.11.0
 # Beat This! (ISMIR 2024) checkpoint, MIT licence.
 ARG BEAT_THIS_URL=https://cloud.cp.jku.at/public.php/dav/files/7ik4RrBKTS273gp/final0.ckpt
+# Model caches live in the image (the runtime /tmp is an empty tmpfs). Demucs 4.1
+# fetches its weights through the Hugging Face hub.
 ENV TORCH_HOME=/opt/models/torch \
+    HF_HOME=/opt/models/hf \
     PF_SOUNDFONT_PATH=/usr/share/sounds/sf2/FluidR3_GM.sf2
 
 RUN apt-get update \
@@ -100,6 +103,8 @@ RUN --mount=type=secret,id=extra_ca,required=false \
       && python -c "from beat_this.inference import load_model; load_model('/opt/models/beat_this/final0.ckpt'); print('beat_this model ok')" \
       && chmod -R a+rX /opt/models; \
     fi
+# Weights were fetched above: never reach the network for them at runtime.
+ENV HF_HUB_OFFLINE=1
 
 COPY backend/src ./src
 COPY backend/alembic ./alembic

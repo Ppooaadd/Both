@@ -9,7 +9,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
+        default: "galaxy-neon-btn bg-primary text-white shadow-xs",
         destructive: "bg-destructive text-white shadow-xs hover:bg-destructive/90",
         outline: "border bg-card shadow-xs hover:bg-accent hover:text-accent-foreground",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",

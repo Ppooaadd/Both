@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Sans_KR, JetBrains_Mono } from "next/font/google";
 
+import { GalaxyLayer } from "@/components/galaxy/GalaxyLayer";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "./providers";
@@ -27,15 +28,25 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f7f8fb" },
-    { media: "(prefers-color-scheme: dark)", color: "#16191f" },
+    { media: "(prefers-color-scheme: light)", color: "#0b0a1d" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0a1d" },
   ],
 };
 
+const REVEAL_BOOT =
+  "(function(d){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;" +
+  "d.classList.add('galaxy-js');setTimeout(function(){if(!window.__galaxyReveal)d.classList.remove('galaxy-js')},4000)})(document.documentElement)";
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ko" className={`${plex.variable} ${mono.variable}`}>
+    <html lang="ko" className={`galaxy ${plex.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Hide .animate-fade-up only when the reveal script will run; if it has
+            not started within 4 s (blocked JS), show everything. */}
+        <script dangerouslySetInnerHTML={{ __html: REVEAL_BOOT }} />
+      </head>
       <body className="min-h-dvh font-sans">
+        <GalaxyLayer />
         <Providers>
           <SiteHeader />
           <main className="mx-auto w-full max-w-6xl px-4 py-8">{children}</main>

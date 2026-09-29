@@ -20,7 +20,7 @@ export function HomeContent() {
   return (
     <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start">
       <section className="flex flex-col gap-6 lg:sticky lg:top-24">
-        <div className="flex flex-col gap-3">
+        <div className="animate-fade-up flex flex-col gap-3">
           <p className="font-mono text-xs tracking-wide text-brass">MP3 · WAV · M4A · FLAC → 피아노 악보</p>
           <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
             좋아하는 곡을 내 실력에 맞는 피아노 악보로
@@ -32,7 +32,7 @@ export function HomeContent() {
         </div>
         <ol className="grid gap-3">
           {STEPS.map((s, i) => (
-            <li key={s.title} className="flex gap-3">
+            <li key={s.title} className="animate-fade-up flex gap-3">
               <span className="grid size-8 shrink-0 place-items-center rounded-md bg-secondary text-secondary-foreground">
                 <s.icon className="size-4" />
               </span>
@@ -45,7 +45,7 @@ export function HomeContent() {
             </li>
           ))}
         </ol>
-        <p className="text-xs text-muted-foreground">
+        <p className="animate-fade-up text-xs text-muted-foreground">
           업로드한 원본 음원은 7일 뒤 자동 삭제됩니다. 저작권이 있는 곡은 개인 연습 용도로만 사용해 주세요.
         </p>
       </section>

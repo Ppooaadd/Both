@@ -3,7 +3,7 @@
 # Used automatically by `make up` when the Docker bridge network cannot carry
 # container-to-container traffic (seen in some GitHub Codespaces setups, where
 # connections between containers time out). Service names still work because
-# each container maps them to 127.0.0.1. Ports: caddy APP_PORT (3000), web 3001,
+# each container maps them to 127.0.0.1. Ports: caddy APP_PORT (3000), web 39001,
 # api 8000, storage 9000/9001, postgres 5432, redis 6379.
 
 x-host: &host
@@ -29,12 +29,12 @@ services:
   web:
     <<: *host
     environment:
-      PORT: "3001"
+      PORT: "39001"
       # Loopback only: Caddy (same host) is the sole entry point, so Codespaces
       # does not offer this port as a second, cross-origin address for the app.
       HOSTNAME: 127.0.0.1
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:39001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       start_period: 15s
@@ -46,4 +46,4 @@ services:
     environment:
       S3_BUCKET: ${S3_BUCKET}
       CADDY_PORT: ${APP_PORT}
-      WEB_UPSTREAM: web:3001
+      WEB_UPSTREAM: web:39001

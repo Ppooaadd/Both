@@ -126,6 +126,7 @@ presigned URL은 내부 스토리지 주소로 서명하고 origin만 `WEB_ORIGI
 | `make clean` | 중지 + DB·스토리지·Redis 볼륨 삭제 |
 | `make migrate` | 마이그레이션만 실행 |
 | `make test` | 백엔드·웹 단위 테스트 (스택 불필요) |
+| `make doctor` | 서비스 상태, 로그, 컨테이너 간 네트워크 점검 출력 (`make up`이 실패하면 자동 실행) |
 | `make e2e` | 실행 중인 스택에 Playwright 전체 흐름 테스트 |
 
 `make e2e`는 `apps/web`에서 `npm ci`와 `npx playwright install chromium`이 먼저 되어 있어야 한다.

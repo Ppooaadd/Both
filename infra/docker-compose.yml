@@ -15,7 +15,7 @@ x-backend-env: &backend-env
   PF_ENV: dev
   PF_LOG_JSON: "true"
   PF_LOG_LEVEL: INFO
-  PF_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  PF_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?connect_timeout=10
   PF_REDIS_URL: redis://redis:6379/0
   PF_S3_ENDPOINT_URL: http://storage:9000
   # Browsers reach storage through Caddy on the app origin.

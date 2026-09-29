@@ -26,3 +26,6 @@ out/
 .idea/
 .vscode/
 .DS_Store
+
+# Created by `make up` when host networking is needed
+infra/.host-network

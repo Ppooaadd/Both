@@ -1,0 +1,47 @@
+# Host-network overlay: every container shares the machine's network stack.
+#
+# Used automatically by `make up` when the Docker bridge network cannot carry
+# container-to-container traffic (seen in some GitHub Codespaces setups, where
+# connections between containers time out). Service names still work because
+# each container maps them to 127.0.0.1. Ports: caddy APP_PORT (3000), web 3001,
+# api 8000, storage 9000/9001, postgres 5432, redis 6379.
+
+x-host: &host
+  network_mode: host
+  extra_hosts:
+    - "postgres:127.0.0.1"
+    - "redis:127.0.0.1"
+    - "storage:127.0.0.1"
+    - "api:127.0.0.1"
+    - "web:127.0.0.1"
+
+services:
+  postgres: *host
+  redis: *host
+  storage: *host
+  storage-init: *host
+  migrate: *host
+  api: *host
+  worker-cpu: *host
+  worker-ml: *host
+  beat: *host
+
+  web:
+    <<: *host
+    environment:
+      PORT: "3001"
+      HOSTNAME: 0.0.0.0
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+
+  caddy:
+    <<: *host
+    ports: !reset []
+    environment:
+      S3_BUCKET: ${S3_BUCKET}
+      CADDY_PORT: ${APP_PORT}
+      WEB_UPSTREAM: web:3001

@@ -565,3 +565,4 @@ flowchart LR
 - 모든 애플리케이션 컨테이너는 비루트 사용자로 실행된다. api와 워커는 읽기 전용 루트 파일시스템에 `/tmp` tmpfs만 쓴다.
 - 기동 순서는 healthcheck와 `service_completed_successfully`로 강제한다: postgres·redis·storage → migrate·storage-init → api·워커 → web → caddy.
 - GPU 오버레이(`docker-compose.gpu.yml`)는 워커를 CUDA torch로 빌드하고 `PF_DEMUCS_DEVICE=cuda`로 worker-ml에 GPU 1장을 할당한다.
+- **네트워크 자동 선택:** `make up`은 시작 전에 새 bridge 네트워크에서 컨테이너 두 개가 서로 통신되는지 확인한다(`infra/scripts/netcheck.sh`). 통신이 막힌 환경(일부 GitHub Codespaces)이면 `infra/.host-network` 표시 파일을 만들고 `docker-compose.host.yml`을 겹쳐 모든 컨테이너를 호스트 네트워크로 실행한다. 서비스 이름은 `extra_hosts`로 127.0.0.1에 매핑해 설정 변경이 필요 없다.

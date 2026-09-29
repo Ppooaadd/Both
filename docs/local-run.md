@@ -139,6 +139,7 @@ presigned URL은 내부 스토리지 주소로 서명하고 origin만 `WEB_ORIGI
 | `worker-ml`이 `OOMKilled` | Docker 메모리 부족 | Docker 메모리를 8 GB 이상으로 늘림 |
 | 분석이 "음원 분리 강등" 경고 | `WITH_ML=false` 이미지 또는 Demucs 실패 | `make logs`에서 `worker-ml` 오류 확인 |
 | 포트 충돌 | 3000 사용 중 | `APP_PORT`와 `WEB_ORIGIN`을 함께 변경 |
+| `make up`이 "host networking으로 전환" 메시지를 출력 | 컨테이너끼리의 bridge 통신이 막힌 환경(일부 Codespaces) | 자동 처리됨. 모든 컨테이너가 호스트 네트워크를 쓰며 포트는 3000(caddy)·3001(web)·8000(api)·9000(storage)·5432·6379를 사용. 되돌리려면 `make down && rm infra/.host-network` |
 | `migrate` 실패 (`password authentication failed`) | 이전 실행의 DB 볼륨이 다른 비밀번호로 남아 있음 | `make clean && make up` (데이터 삭제) |
 | 사내 프록시에서 빌드 TLS 오류 | 가로채기 프록시 CA | `docker build --secret id=extra_ca,src=ca.crt` (Dockerfile 주석 참고) |
 

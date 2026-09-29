@@ -1,7 +1,8 @@
 #!/bin/sh
 # Print what is needed to understand a stuck or failed `make up`.
 cd "$(dirname "$0")/../.."
-C="docker compose -f infra/docker-compose.yml --env-file infra/.env"
+H=""; [ -f infra/.host-network ] && H="-f infra/docker-compose.host.yml"
+C="docker compose -f infra/docker-compose.yml $H --env-file infra/.env"
 echo
 echo "=================== PianoForge diagnostics ==================="
 echo "--- services"

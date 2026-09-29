@@ -5,7 +5,7 @@
 	admin off
 }
 
-:80 {
+:{$CADDY_PORT:80} {
 	encode zstd gzip
 
 	# Presigned S3 URLs: /<bucket> (POST upload) and /<bucket>/<key> (GET).
@@ -39,7 +39,7 @@
 		request_body {
 			max_size 2MB
 		}
-		reverse_proxy web:3000
+		reverse_proxy {$WEB_UPSTREAM:web:3000}
 	}
 
 	header {

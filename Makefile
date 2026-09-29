@@ -1,7 +1,9 @@
 # PianoForge developer commands. `make help` lists them.
 
-COMPOSE := docker compose -f infra/docker-compose.yml --env-file infra/.env
-COMPOSE_GPU := docker compose -f infra/docker-compose.yml -f infra/docker-compose.gpu.yml --env-file infra/.env
+# infra/.host-network is created by `make up` when the bridge network is unusable.
+HOSTNET = $(if $(wildcard infra/.host-network),-f infra/docker-compose.host.yml)
+COMPOSE = docker compose -f infra/docker-compose.yml $(HOSTNET) --env-file infra/.env
+COMPOSE_GPU = docker compose -f infra/docker-compose.yml -f infra/docker-compose.gpu.yml $(HOSTNET) --env-file infra/.env
 
 .DEFAULT_GOAL := help
 .PHONY: help env build up up-gpu doctor down clean logs ps migrate test test-backend test-web e2e
@@ -16,18 +18,10 @@ build: env ## Build all images
 	$(COMPOSE) build
 
 up: env ## Build and start the stack in the background (http://localhost:3000)
-	$(COMPOSE) build
-	@timeout 420 $(COMPOSE) up -d || { echo "\nStartup did not finish in time or failed."; sh infra/scripts/diagnose.sh; exit 1; }
-	@echo ""
-	@echo "  PianoForge is running: $$(grep ^WEB_ORIGIN infra/.env | cut -d= -f2)"
-	@echo ""
+	@sh infra/scripts/up.sh
 
 up-gpu: env ## Same as up, with the NVIDIA GPU overlay for the ML worker
-	$(COMPOSE_GPU) build
-	@timeout 420 $(COMPOSE_GPU) up -d || { echo "\nStartup did not finish in time or failed."; sh infra/scripts/diagnose.sh; exit 1; }
-	@echo ""
-	@echo "  PianoForge is running: $$(grep ^WEB_ORIGIN infra/.env | cut -d= -f2)"
-	@echo ""
+	@sh infra/scripts/up.sh gpu
 
 doctor: env ## Print diagnostics (service status, logs, network checks)
 	@sh infra/scripts/diagnose.sh
